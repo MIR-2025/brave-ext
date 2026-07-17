@@ -59,6 +59,32 @@ uploads are embedded the same way.
 Some sites set (or reset) their favicon from JavaScript after the page loads. A small
 `MutationObserver` watches for that and re-asserts your icon, so your choice wins.
 
+## Localhost and ports
+
+Dev servers all live on `localhost`, so keying by hostname alone would make every
+port share one icon. Instead each site is keyed by **host *and* port**:
+`localhost:26715` and `localhost:3000` are separate entries, while normal sites
+(which use the default port) are keyed exactly as before.
+
+The auto icon is port-aware too: on a local host the badge shows the **port number**
+rather than a useless "L", in a color derived from the whole host -- so a row of dev
+tabs is instantly readable.
+
+| Host | Auto icon |
+| --- | --- |
+| `localhost:26715` | **26715** |
+| `localhost:3000` | **3000** |
+| `127.0.0.1:5173` | **5173** |
+| `192.168.1.50:9000` | **9000** |
+| `github.com` | **G** |
+
+"Local" means `localhost`, `127.x`, `::1`, `0.0.0.0`, a private LAN range
+(`10.x`, `192.168.x`, `172.16-31.x`) or a `.local` / `.localhost` name. A public
+host with a port (`example.com:8443`) still gets its letter.
+
+An entry saved for the bare hostname (`localhost`) acts as a **fallback** for any
+port you haven't given its own icon.
+
 ## Notes and limits
 
 - **Already-open tabs:** the browser does not inject content scripts into tabs that

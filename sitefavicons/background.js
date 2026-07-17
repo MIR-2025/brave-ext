@@ -16,7 +16,7 @@ function setupMenus() {
       chrome.contextMenus.create({ id: 'sf-emoji-' + e, parentId: 'sf-root', title: e + '   set ' + e, contexts: CTX });
     }
     chrome.contextMenus.create({ id: 'sf-sep1', parentId: 'sf-root', type: 'separator', contexts: CTX });
-    chrome.contextMenus.create({ id: 'sf-letter', parentId: 'sf-root', title: 'Use a colored letter', contexts: CTX });
+    chrome.contextMenus.create({ id: 'sf-letter', parentId: 'sf-root', title: 'Auto icon (letter, or port on localhost)', contexts: CTX });
     chrome.contextMenus.create({ id: 'sf-more', parentId: 'sf-root', title: 'More... (image, URL, any emoji)', contexts: CTX });
     chrome.contextMenus.create({ id: 'sf-sep2', parentId: 'sf-root', type: 'separator', contexts: CTX });
     chrome.contextMenus.create({ id: 'sf-remove', parentId: 'sf-root', title: 'Remove custom favicon', contexts: CTX });
@@ -32,7 +32,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     const u = new URL(tab.url);
     if (!/^https?:$/.test(u.protocol)) return;
-    host = u.hostname;
+    host = u.host; // includes :port when non-default -> per-port dev icons
   } catch (_) { return; }
 
   const id = String(info.menuItemId);
@@ -103,15 +103,27 @@ function drawApply(spec) {
     x.textBaseline = 'middle';
     x.fillText(spec.value, 32, 36);
   } else {
-    const t = String(spec.value || 'S').replace(/^www\./, '');
+    // On a local dev host the port is the identity ("26715" beats a generic "L").
+    const host = String(spec.value || 'S');
+    const m = /^(.*?):(\d+)$/.exec(host);
+    const name = (m ? m[1] : host).replace(/^\[|\]$/g, '');
+    const port = m ? m[2] : '';
+    const n = name.toLowerCase();
+    const local = n === 'localhost' || n === '::1' || n === '0.0.0.0' ||
+      /\.local$/.test(n) || /\.localhost$/.test(n) ||
+      /^127\./.test(n) || /^10\./.test(n) || /^192\.168\./.test(n) || /^172\.(1[6-9]|2\d|3[01])\./.test(n);
+    const label = (port && local) ? port : ((name.replace(/^www\./, '').trim()[0] || 'S').toUpperCase());
+    const L = label.length;
+    const size = L >= 5 ? 19 : L === 4 ? 23 : L === 3 ? 29 : L === 2 ? 34 : 38;
+
     rr(x, 2, 2, 60, 60, 13);
-    x.fillStyle = 'hsl(' + hashHue(t) + ', 55%, 46%)';
+    x.fillStyle = 'hsl(' + hashHue(host) + ', 55%, 46%)';
     x.fill();
     x.fillStyle = '#fff';
-    x.font = 'bold 38px system-ui, sans-serif';
+    x.font = 'bold ' + size + 'px system-ui, sans-serif';
     x.textAlign = 'center';
     x.textBaseline = 'middle';
-    x.fillText((t.trim()[0] || 'S').toUpperCase(), 32, 35);
+    x.fillText(label, 32, 34);
   }
   const href = c.toDataURL('image/png');
   document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach((n) => n.remove());

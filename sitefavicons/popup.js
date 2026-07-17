@@ -60,7 +60,7 @@ async function init() {
       editor.hidden = true;
       unsupported.hidden = false;
     } else {
-      host = url.hostname;
+      host = url.host; // includes :port when non-default -> per-port dev icons
       hostEl.textContent = host;
       if (tab.favIconUrl) curfav.src = tab.favIconUrl;
     }
@@ -93,6 +93,8 @@ function wire() {
     openEditorBtn.addEventListener('click', openEditorWindow);
   }
 
+  const lbl = iconLabel(host || 'Site');
+  letterBtn.textContent = /^\d+$/.test(lbl) ? ('Use the port number (' + lbl + ')') : 'Use a colored letter';
   letterBtn.addEventListener('click', () => setPending(monogramFavicon(host || 'Site')));
 
   saveBtn.addEventListener('click', onSave);
@@ -253,19 +255,37 @@ function roundRect(x, px, py, w, h, r) {
   x.arcTo(px, py, px + w, py, r);
   x.closePath();
 }
-function monogramFavicon(title) {
-  const letter = ((title || '').replace(/^www\./, '').trim()[0] || 'S').toUpperCase();
+// On a local dev host the port is the identity ("26715" beats a generic "L"), so
+// show it. Elsewhere fall back to the first letter of the name.
+function iconLabel(host) {
+  const m = /^(.*?):(\d+)$/.exec(host || '');
+  const name = (m ? m[1] : (host || '')).replace(/^\[|\]$/g, '');
+  const port = m ? m[2] : '';
+  const n = name.toLowerCase();
+  const local = n === 'localhost' || n === '::1' || n === '0.0.0.0' ||
+    /\.local$/.test(n) || /\.localhost$/.test(n) ||
+    /^127\./.test(n) || /^10\./.test(n) || /^192\.168\./.test(n) || /^172\.(1[6-9]|2\d|3[01])\./.test(n);
+  if (port && local) return port;
+  return (name.replace(/^www\./, '').trim()[0] || 'S').toUpperCase();
+}
+function labelFont(label) {
+  const L = label.length;
+  return L >= 5 ? 19 : L === 4 ? 23 : L === 3 ? 29 : L === 2 ? 34 : 38;
+}
+
+function monogramFavicon(host) {
+  const label = iconLabel(host);
   const c = document.createElement('canvas');
   c.width = c.height = 64;
   const x = c.getContext('2d');
   roundRect(x, 2, 2, 60, 60, 13);
-  x.fillStyle = 'hsl(' + hashHue(title || 'site') + ', 55%, 46%)';
+  x.fillStyle = 'hsl(' + hashHue(host || 'site') + ', 55%, 46%)';
   x.fill();
   x.fillStyle = '#fff';
-  x.font = 'bold 38px system-ui, sans-serif';
+  x.font = 'bold ' + labelFont(label) + 'px system-ui, sans-serif';
   x.textAlign = 'center';
   x.textBaseline = 'middle';
-  x.fillText(letter, 32, 35);
+  x.fillText(label, 32, 34);
   return c.toDataURL('image/png');
 }
 function glyphFavicon(text) {

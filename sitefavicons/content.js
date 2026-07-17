@@ -3,24 +3,30 @@
 // favicon from JavaScript, which would otherwise overwrite ours).
 
 (function () {
-  const host = location.hostname;
+  // location.host includes ":port" when it isn't the default, so localhost:3000 and
+  // localhost:26715 get their own icons while normal sites are keyed as before.
+  const host = location.host;
+  const bareHost = location.hostname;
   if (!host) return;
 
   let applying = false;
   let currentHref = null;
   let observer = null;
 
+  // Exact host:port wins; a bare-hostname entry acts as a fallback for other ports.
+  const lookup = (map) => (map && (map[host] || map[bareHost])) || null;
+
   chrome.storage.local.get('faviconMap').then(({ faviconMap }) => {
-    const map = faviconMap || {};
-    if (map[host]) boot(map[host]);
+    const href = lookup(faviconMap || {});
+    if (href) boot(href);
   }).catch((e) => console.warn('[Site Favicons]', e));
 
   // Live updates from the popup: apply on save; removals take effect on next load
   // (the popup reloads the active tab).
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.faviconMap) return;
-    const map = changes.faviconMap.newValue || {};
-    if (map[host]) boot(map[host]);
+    const href = lookup(changes.faviconMap.newValue || {});
+    if (href) boot(href);
   });
 
   function boot(href) {
