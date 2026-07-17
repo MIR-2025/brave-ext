@@ -26,6 +26,14 @@ html, body {
 
 .body { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
 
+.apply {
+  appearance: none; border: 1px solid var(--accent); border-radius: 8px;
+  background: var(--accent); color: #fff; padding: 9px; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.apply:hover { background: var(--accent-hi); }
+.applymsg { margin-top: -6px; min-height: 14px; color: var(--muted); font-size: 11px; }
+
 .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
 .row input[type="checkbox"] { accent-color: var(--accent-hi); }
 .row span { flex: 1; }

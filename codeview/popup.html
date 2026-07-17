@@ -12,7 +12,10 @@
   </header>
 
   <div class="body">
-    <label class="row"><input type="checkbox" id="enabled" checked> <span>Highlight source files</span></label>
+    <button id="applyNow" class="apply" type="button">Highlight this tab now</button>
+    <div id="applyMsg" class="applymsg"></div>
+
+    <label class="row"><input type="checkbox" id="enabled" checked> <span>Auto-highlight matching files</span></label>
     <label class="row"><input type="checkbox" id="favicon" checked> <span>Give pages a favicon</span></label>
     <label class="row"><input type="checkbox" id="wrap"> <span>Wrap long lines by default</span></label>
     <label class="row">

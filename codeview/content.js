@@ -4,6 +4,9 @@
 // same isolated world, so `hljs` is available here.
 
 (async function () {
+  // Already rendered (e.g. injected twice, or the manual button on an auto page).
+  if (document.body && document.body.classList.contains('cv')) return;
+
   const ct = (document.contentType || '').toLowerCase();
   const APP = ['application/json', 'application/javascript', 'text/javascript', 'application/xml',
     'application/x-sh', 'application/x-yaml', 'application/toml', 'application/sql', 'application/x-httpd-php'];

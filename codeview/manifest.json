@@ -3,7 +3,7 @@
   "name": "Code Viewer -- syntax-highlighted source files",
   "version": "1.0.0",
   "description": "Renders source files (local and remote) with syntax highlighting, line numbers, dark/light themes, wrap and raw toggles, and copy. Fully local.",
-  "permissions": ["storage", "clipboardWrite"],
+  "permissions": ["storage", "clipboardWrite", "scripting", "activeTab"],
   "action": {
     "default_title": "Code Viewer",
     "default_popup": "popup.html",
