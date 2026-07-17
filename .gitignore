@@ -1,0 +1,16 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Node (not used at runtime, but keep stray installs out)
+node_modules/
+npm-debug.log*
+
+# Packaged builds
+*.zip
+*.crx
+*.pem

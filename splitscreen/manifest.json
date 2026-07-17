@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Split Screen -- side-by-side browsing",
+  "version": "1.0.0",
+  "description": "View two or more web pages side by side in one tab. Drag the divider to resize, switch between side-by-side and stacked layouts. Local only.",
+  "permissions": ["declarativeNetRequest", "storage", "contextMenus"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "Open Split Screen",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": { "service_worker": "background.js" }
+}

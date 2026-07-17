@@ -1,0 +1,94 @@
+:root {
+  --bg: #1b1e24;
+  --bar: #23272f;
+  --line: #333a45;
+  --text: #e7ebf1;
+  --muted: #9aa4b2;
+  --accent: #4c8bf5;
+  --accent-hi: #6ea3ff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+
+.meta {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #2c313b;
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, opacity .12s;
+}
+button:hover:not(:disabled) { background: #353b47; border-color: #47505e; }
+button:active:not(:disabled) { background: #2a2f38; }
+button:disabled { opacity: .45; cursor: default; }
+
+#pngBtn:not(:disabled) { border-color: var(--accent); color: var(--accent-hi); }
+
+.stage {
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.status {
+  color: var(--muted);
+  margin-top: 40px;
+}
+
+#shot {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  /* checkerboard so transparency is visible */
+  background-color: #2a2f38;
+  background-image:
+    linear-gradient(45deg, #23272f 25%, transparent 25%),
+    linear-gradient(-45deg, #23272f 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #23272f 75%),
+    linear-gradient(-45deg, transparent 75%, #23272f 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, .45);
+}

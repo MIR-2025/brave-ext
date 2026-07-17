@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FullPage</title>
+  <link rel="stylesheet" href="result.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="brand">
+      <img src="icons/icon32.png" alt="" width="22" height="22">
+      <span>FullPage</span>
+    </div>
+    <div class="meta" id="meta"></div>
+    <div class="actions">
+      <button id="pngBtn" disabled>Download PNG</button>
+      <button id="pdfBtn" disabled>Download PDF</button>
+      <button id="copyBtn" disabled>Copy to clipboard</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <p class="status" id="status">Loading capture...</p>
+    <img id="shot" alt="Full page capture" hidden>
+  </main>
+
+  <script src="result.js"></script>
+</body>
+</html>
