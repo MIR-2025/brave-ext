@@ -16,7 +16,8 @@ telemetry. Everything runs locally in your browser and nothing is sent anywhere.
 | [`markdownview/`](markdownview/) | **Renders `.md` files** (local and remote) as clean pages -- reading layout, dark/light themes, table of contents, raw toggle, and a favicon per file. |
 | [`sitefavicons/`](sitefavicons/) | **Custom favicon for any site** -- an emoji, an image, a URL, or a colored letter. For sites with a blank or generic icon. |
 | [`devdash/`](devdash/) | **Dev Dashboard** -- a popup listing your localhost servers and deployed sites with a live up/down check and one-click open. |
-| [`codeview/`](codeview/) | **Code Viewer** -- renders source files (local and remote) with syntax highlighting, line numbers, themes, wrap/raw toggles, and copy. |
+| [`codeview/`](codeview/) | **Code Viewer** -- renders source files (local and remote) with syntax highlighting, line numbers, themes, a Format button for minified files, wrap/raw toggles, and copy. |
+| [`taboverview/`](taboverview/) | **Tab Overview** -- a full-page grid of every open tab with thumbnails (captured as you browse), search, and one-click switch/close. |
 
 ## Install (load unpacked)
 
