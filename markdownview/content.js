@@ -12,11 +12,12 @@
   if (looksMd) { try { document.documentElement.style.visibility = 'hidden'; } catch (_) { /* ignore */ } }
   const reveal = () => { try { document.documentElement.style.visibility = ''; } catch (_) { /* ignore */ } };
 
-  let cfg = { mdvEnabled: true, mdvTheme: 'auto' };
+  let cfg = { mdvEnabled: true, mdvTheme: 'auto', mdvFavicon: true };
   try {
-    const s = await chrome.storage.local.get(['mdvEnabled', 'mdvTheme']);
+    const s = await chrome.storage.local.get(['mdvEnabled', 'mdvTheme', 'mdvFavicon']);
     if (typeof s.mdvEnabled === 'boolean') cfg.mdvEnabled = s.mdvEnabled;
     if (s.mdvTheme) cfg.mdvTheme = s.mdvTheme;
+    if (typeof s.mdvFavicon === 'boolean') cfg.mdvFavicon = s.mdvFavicon;
   } catch (_) { /* ignore */ }
 
   if (!looksMd || !cfg.mdvEnabled || typeof marked === 'undefined') { reveal(); return; }
@@ -24,7 +25,7 @@
   const raw = extractRaw();
   if (raw == null || raw === '') { reveal(); return; }
 
-  try { renderDoc(raw, cfg.mdvTheme); } catch (e) { console.error('[MarkdownView]', e); }
+  try { renderDoc(raw, cfg.mdvTheme, cfg.mdvFavicon); } catch (e) { console.error('[MarkdownView]', e); }
   reveal();
 
   function extractRaw() {
@@ -96,13 +97,89 @@
     return tocEl;
   }
 
-  function renderDoc(rawText, themePref) {
-    const name = decodeURIComponent((location.pathname.split('/').pop() || '').split('?')[0]) || 'Markdown';
+  // --- YAML-ish front matter (flat key: value between --- fences at the top) ---
+  function splitFrontMatter(raw) {
+    const m = /^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/.exec(raw);
+    if (!m) return { meta: {}, body: raw };
+    const meta = {};
+    for (const line of m[1].split(/\r?\n/)) {
+      const kv = /^\s*([A-Za-z0-9_.-]+)\s*:\s*(.*?)\s*$/.exec(line);
+      if (kv) meta[kv[1].toLowerCase()] = kv[2].replace(/^["']|["']$/g, '');
+    }
+    return { meta, body: raw.slice(m[0].length) };
+  }
+
+  // --- favicons for pages that don't have one ---
+  function hashHue(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    return ((h % 360) + 360) % 360;
+  }
+  function roundRect(x, px, py, w, h, r) {
+    if (x.roundRect) { x.beginPath(); x.roundRect(px, py, w, h, r); return; }
+    x.beginPath();
+    x.moveTo(px + r, py);
+    x.arcTo(px + w, py, px + w, py + h, r);
+    x.arcTo(px + w, py + h, px, py + h, r);
+    x.arcTo(px, py + h, px, py, r);
+    x.arcTo(px, py, px + w, py, r);
+    x.closePath();
+  }
+  function monogramFavicon(title) {
+    const letter = ((title || '').trim()[0] || 'M').toUpperCase();
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const x = c.getContext('2d');
+    roundRect(x, 2, 2, 60, 60, 13);
+    x.fillStyle = 'hsl(' + hashHue(title || 'md') + ', 52%, 45%)';
+    x.fill();
+    x.fillStyle = '#fff';
+    x.font = 'bold 38px system-ui, sans-serif';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.fillText(letter, 32, 35);
+    return c.toDataURL('image/png');
+  }
+  function glyphFavicon(text) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const x = c.getContext('2d');
+    const len = Array.from(text).length;
+    x.font = (len > 1 ? 34 : 52) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,serif';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.fillText(text, 32, 36);
+    return c.toDataURL('image/png');
+  }
+  function faviconFor(meta, title) {
+    const spec = (meta.favicon || meta.icon || '').trim();
+    if (spec) {
+      if (/^(https?:|data:|\/|\.\.?\/)/i.test(spec)) return spec; // url / path -> use as-is
+      return glyphFavicon(spec);                                   // emoji / short text -> draw it
+    }
+    return monogramFavicon(title);
+  }
+  function setFavicon(href) {
+    if (!href) return;
+    try {
+      document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"]').forEach((n) => n.remove());
+      const link = document.createElement('link');
+      link.rel = 'icon';
+      link.href = href;
+      (document.head || document.documentElement).appendChild(link);
+    } catch (_) { /* ignore */ }
+  }
+
+  function renderDoc(rawText, themePref, faviconOn) {
+    const fileName = decodeURIComponent((location.pathname.split('/').pop() || '').split('?')[0]) || 'Markdown';
+    const { meta, body } = splitFrontMatter(rawText);
+    const name = meta.title || fileName;
     document.title = name;
+    if (faviconOn) setFavicon(faviconFor(meta, name));
 
     marked.setOptions({ gfm: true, breaks: false });
     let html;
-    try { html = marked.parse(rawText); } catch (_) { html = '<pre>' + esc(rawText) + '</pre>'; }
+    try { html = marked.parse(body); } catch (_) { html = '<pre>' + esc(rawText) + '</pre>'; }
     const safe = sanitize(html);
 
     document.body.className = 'mdv';

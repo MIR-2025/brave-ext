@@ -18,7 +18,30 @@ contents, and a one-click **View raw** toggle. Local only: no accounts, no netwo
   a local `file://` path or a remote one served as text (e.g. a raw GitHub URL).
 - It renders automatically. Use the toolbar for **Contents**, **View raw**, and
   **Theme** (Auto -> Light -> Dark, remembered).
-- The toolbar popup (extension icon) has a global on/off switch and the default theme.
+- The toolbar popup (extension icon) has a global on/off switch, the default theme,
+  and a favicon toggle.
+
+## Favicons for pages that have none
+
+Markdown files normally give the tab a blank icon. MarkdownView fixes that:
+
+- **Auto** -- each file gets a colored **monogram** (the first letter of its title,
+  on a color derived from the filename), so several open `.md` tabs are easy to tell
+  apart.
+- **Custom, via front matter** -- add YAML front matter at the top and MarkdownView
+  uses it (and hides it from the rendered page):
+
+  ```
+  ---
+  title: My Design Doc
+  favicon: 🎨
+  ---
+  ```
+
+  `favicon:` accepts an **emoji**, a **URL**, or a **relative path** (e.g.
+  `./logo.png`). `title:` sets the tab (and bookmark) title.
+
+Turn the whole thing off with the **Give pages a favicon** switch in the popup.
 
 ## How it works
 
