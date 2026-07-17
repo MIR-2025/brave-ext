@@ -13,7 +13,8 @@ telemetry. Everything runs locally in your browser and nothing is sent anywhere.
 | [`splitscreen/`](splitscreen/) | View two or more live pages **side by side in one tab**. Arbitrary R×C grids with draggable gutters, an open-tabs picker, a right-click "Open in Split Screen" menu, and **bookmarkable sets** (each wearing its first pane's favicon). |
 | [`groupicons/`](groupicons/) | Put an **emoji icon on a tab group** instead of a text label, and recolor groups. |
 | [`fakedata/`](fakedata/) | **Smart form filler.** Fills forms with one coherent fake persona, matching each field (email, name, address, Luhn-valid test card...). Popup, right-click, or Alt+Shift+F. |
-| [`markdownview/`](markdownview/) | **Renders `.md` files** (local and remote) as clean pages -- reading layout, dark/light themes, table of contents, raw toggle. |
+| [`markdownview/`](markdownview/) | **Renders `.md` files** (local and remote) as clean pages -- reading layout, dark/light themes, table of contents, raw toggle, and a favicon per file. |
+| [`sitefavicons/`](sitefavicons/) | **Custom favicon for any site** -- an emoji, an image, a URL, or a colored letter. For sites with a blank or generic icon. |
 
 ## Install (load unpacked)
 
