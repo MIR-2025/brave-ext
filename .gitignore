@@ -14,3 +14,11 @@ npm-debug.log*
 *.zip
 *.crx
 *.pem
+
+# Stray screenshots / images dropped at the repo root (extension icons live in
+# */icons/ and are added explicitly). This repo is PUBLIC -- keep loose images out.
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.gif
