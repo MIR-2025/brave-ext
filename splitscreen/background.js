@@ -70,6 +70,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return true; // keep the message channel open for the async response
     }
     sendResponse({ ok: false, error: 'no tab id' });
+    return;
+  }
+  if (msg && msg.type === 'splitAlive') {
+    const tabId = sender.tab && sender.tab.id;
+    if (typeof tabId === 'number') recordSplit(tabId, msg.set);
+    return; // no response needed
   }
 });
 
@@ -92,4 +98,59 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   try {
     await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tabId] });
   } catch (_) { /* rule may not exist */ }
+  markSplitClosed(tabId);
 });
+
+// ---- survive extension reload / browser restart ----
+// Reloading an unpacked extension closes its pages, so split tabs would vanish. We
+// keep a record of open split tabs (with their encoded layout) and reopen them when
+// the extension is (re)loaded or the browser starts.
+
+async function getOpenSplits() {
+  try { return (await chrome.storage.local.get('openSplits')).openSplits || {}; } catch (_) { return {}; }
+}
+
+async function recordSplit(tabId, setParam) {
+  const map = await getOpenSplits();
+  map[tabId] = { set: setParam || '', alive: true, ts: Date.now() };
+  try { await chrome.storage.local.set({ openSplits: map }); } catch (_) { /* ignore */ }
+}
+
+async function markSplitClosed(tabId) {
+  const map = await getOpenSplits();
+  if (map[tabId]) {
+    map[tabId].alive = false;
+    map[tabId].ts = Date.now();
+    try { await chrome.storage.local.set({ openSplits: map }); } catch (_) { /* ignore */ }
+  }
+}
+
+async function reopenSplits() {
+  const map = await getOpenSplits();
+  const now = Date.now();
+  // Reopen tabs that were alive, or closed within the last 15s (i.e. by this reload).
+  const wanted = Object.values(map)
+    .filter((e) => e && e.set && (e.alive || (now - (e.ts || 0) < 15000)))
+    .map((e) => e.set);
+  try { await chrome.storage.local.set({ openSplits: {} }); } catch (_) { /* reopened tabs re-register */ }
+  if (!wanted.length) return;
+
+  // Dedupe against split tabs the browser may have restored on startup.
+  let present = new Set();
+  try {
+    const tabs = await chrome.tabs.query({});
+    present = new Set(tabs
+      .filter((t) => t.url && t.url.startsWith(SPLIT_URL))
+      .map((t) => { try { return new URL(t.url).searchParams.get('set'); } catch (_) { return null; } })
+      .filter(Boolean));
+  } catch (_) { /* ignore */ }
+
+  for (const set of wanted) {
+    if (present.has(set)) continue;
+    present.add(set);
+    try { await chrome.tabs.create({ url: SPLIT_URL + '?set=' + set, active: false }); } catch (_) { /* ignore */ }
+  }
+}
+
+chrome.runtime.onInstalled.addListener(reopenSplits);
+chrome.runtime.onStartup.addListener(reopenSplits);

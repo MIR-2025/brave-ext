@@ -443,14 +443,24 @@ function snapshot() {
   };
 }
 
+let aliveTimer = null;
+function notifyAlive(enc) {
+  clearTimeout(aliveTimer);
+  aliveTimer = setTimeout(() => {
+    try { chrome.runtime.sendMessage({ type: 'splitAlive', set: enc }); } catch (_) { /* ignore */ }
+  }, 400);
+}
+
 function save() {
   if (building) return;
   const snap = snapshot();
   try { chrome.storage.local.set({ splitState: snap }); } catch (_) { /* ignore */ }
+  let enc = '';
   try {
-    const enc = b64urlEncode(JSON.stringify(snap));
+    enc = b64urlEncode(JSON.stringify(snap));
     history.replaceState(null, '', location.pathname + '?set=' + enc);
   } catch (_) { /* ignore */ }
+  if (enc) notifyAlive(enc);           // let the worker record this tab so a reload can reopen it
   updateIdentity();
   updateActiveChips();
 }

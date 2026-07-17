@@ -75,6 +75,14 @@ That scoping is why the extension asks for `<all_urls>` host access: the rule ha
 be able to touch whatever site you choose to load. It is not used for anything else
 -- there is no tracking, storage of your browsing, or network traffic of any kind.
 
+## Surviving an extension reload
+
+Split tabs are extension pages, so reloading the extension (a dev iteration, or an
+update) would normally close them and lose your panes. Instead, the extension keeps a
+small record of which split tabs are open (and their exact layout) and **reopens them
+automatically** when it is reloaded or the browser restarts -- deduped against any the
+browser restored on its own. So a reload brings your split views right back.
+
 ## Limits and notes
 
 - **Frame-busting sites**: a few sites run JavaScript to force themselves out of a
