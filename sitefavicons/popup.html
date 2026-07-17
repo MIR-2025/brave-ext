@@ -34,9 +34,11 @@
           <span>Emoji</span>
           <input id="emoji" type="text" maxlength="8" spellcheck="false" placeholder="e.g. 🚀">
         </label>
-        <label class="ctl">
+        <label class="ctl" id="fileRow">
           <span>Image file</span>
-          <input id="file" type="file" accept="image/*">
+          <input id="file" type="file"
+                 accept="image/*,.png,.jpg,.jpeg,.webp,.avif,.gif,.svg,.bmp,.ico">
+          <button id="openEditor" class="btn ghost" type="button">Choose image...</button>
         </label>
         <label class="ctl">
           <span>Image URL</span>

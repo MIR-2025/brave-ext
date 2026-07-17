@@ -62,17 +62,15 @@ async function removeFor(tabId, host) {
   try { await chrome.tabs.reload(tabId); } catch (_) { /* ignore */ }
 }
 
+// Always a real window (never the action popup): a file picker can't be used from
+// an action popup, because opening the OS dialog closes the popup.
 async function openEditor(tab, host) {
-  try { await chrome.tabs.update(tab.id, { active: true }); } catch (_) { /* ignore */ }
-  try {
-    if (chrome.action.openPopup) { await chrome.action.openPopup(); return; }
-  } catch (_) { /* fall through */ }
   try {
     await chrome.windows.create({
-      url: chrome.runtime.getURL('popup.html') + '?host=' + encodeURIComponent(host) + '&tabId=' + tab.id,
+      url: chrome.runtime.getURL('popup.html') + '?editor=1&host=' + encodeURIComponent(host) + '&tabId=' + tab.id,
       type: 'popup',
-      width: 380,
-      height: 660
+      width: 390,
+      height: 700
     });
   } catch (e) { console.error('[Site Favicons]', e); }
 }

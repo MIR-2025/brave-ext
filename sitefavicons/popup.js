@@ -11,6 +11,7 @@ const emojiInput = document.getElementById('emoji');
 const fileInput = document.getElementById('file');
 const urlInput = document.getElementById('url');
 const letterBtn = document.getElementById('letter');
+const openEditorBtn = document.getElementById('openEditor');
 const saveBtn = document.getElementById('save');
 const removeBtn = document.getElementById('remove');
 const listEl = document.getElementById('list');
@@ -25,13 +26,27 @@ const params = new URLSearchParams(location.search);
 const paramHost = params.get('host');
 const paramTabId = params.get('tabId');
 
+// A file picker cannot be used from the action popup: opening the OS dialog takes
+// focus, which closes the popup and destroys its JS before the file is read. So
+// uploads happen in EDITOR_MODE -- this page opened as a real window instead.
+const EDITOR_MODE = params.get('editor') === '1';
+
 init();
 
 async function init() {
+  if (EDITOR_MODE) openEditorBtn.remove();
+  else fileInput.remove();
+
   if (paramHost) {
     host = paramHost;
     hostEl.textContent = host;
     activeTabId = paramTabId ? Number(paramTabId) : null;
+    if (activeTabId) {
+      try {
+        const t = await chrome.tabs.get(activeTabId);
+        if (t && t.favIconUrl) curfav.src = t.favIconUrl;
+      } catch (_) { /* ignore */ }
+    }
   } else {
     let tab;
     try { [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); } catch (_) { /* ignore */ }
@@ -65,17 +80,56 @@ function wire() {
     const v = urlInput.value.trim();
     if (v) setPending(v);
   });
-  fileInput.addEventListener('change', () => {
-    const f = fileInput.files && fileInput.files[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = () => setPending(String(r.result));
-    r.readAsDataURL(f);
-  });
+  if (EDITOR_MODE) {
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = async () => setPending(await toIcon(String(r.result)));
+      r.onerror = () => flash(saveBtn, 'Could not read file');
+      r.readAsDataURL(f);
+    });
+  } else {
+    openEditorBtn.addEventListener('click', openEditorWindow);
+  }
+
   letterBtn.addEventListener('click', () => setPending(monogramFavicon(host || 'Site')));
 
   saveBtn.addEventListener('click', onSave);
   removeBtn.addEventListener('click', onRemove);
+}
+
+async function openEditorWindow() {
+  const url = chrome.runtime.getURL('popup.html') +
+    '?editor=1&host=' + encodeURIComponent(host) + (activeTabId ? '&tabId=' + activeTabId : '');
+  try { await chrome.windows.create({ url, type: 'popup', width: 390, height: 700 }); } catch (e) { console.error(e); }
+  window.close();
+}
+
+// Decode whatever was uploaded (webp / avif / svg / gif / png / jpg) and re-encode
+// it as a small square PNG. Normalising here means the favicon always works and the
+// stored data URL stays a few KB instead of megabytes.
+function toIcon(dataUrl) {
+  return new Promise((resolve) => {
+    const im = new Image();
+    im.onload = () => {
+      if (!im.naturalWidth || !im.naturalHeight) return resolve(dataUrl); // e.g. sizeless SVG
+      try {
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        const x = c.getContext('2d');
+        const s = Math.min(64 / im.naturalWidth, 64 / im.naturalHeight);
+        const w = Math.max(1, Math.round(im.naturalWidth * s));
+        const h = Math.max(1, Math.round(im.naturalHeight * s));
+        x.drawImage(im, (64 - w) / 2, (64 - h) / 2, w, h); // contain, centred
+        resolve(c.toDataURL('image/png'));
+      } catch (_) {
+        resolve(dataUrl); // tainted or unsupported -> use as-is
+      }
+    };
+    im.onerror = () => resolve(dataUrl);
+    im.src = dataUrl;
+  });
 }
 
 function setPending(href) {

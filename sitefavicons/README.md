@@ -29,11 +29,21 @@ custom favicon**.
 1. Go to the site you want to change, and click the **Site Favicons** icon.
 2. The popup shows that site's hostname and its current icon. Pick a new one:
    - **Emoji** -- type or paste any emoji (e.g. `🚀`)
-   - **Image file** -- upload a PNG/SVG/JPG from your machine
+   - **Choose image...** -- opens the editor window, where you can upload a
+     **PNG, JPG, WebP, AVIF, GIF, SVG, BMP or ICO**
    - **Image URL** -- paste a link to an image
    - **Use a colored letter** -- an auto monogram (first letter of the host, on a
      color derived from the name)
 3. Check the **preview**, then hit **Save for this site**. It applies immediately.
+
+> **Why does "Choose image..." open a separate window?** A file picker can't be used
+> from a toolbar popup: opening the OS file dialog moves focus, which makes the
+> browser close the popup and throw away its state before the file is ever read. The
+> editor is a real window, so the picker works there. (The right-click **More...**
+> item opens the same editor directly.)
+
+Uploaded images are decoded and re-encoded as a **64x64 PNG**, so any format the
+browser can read works (WebP included) and each stored icon stays a few KB.
 
 **Remove** clears the custom icon for the current site and reloads the tab so the
 site's real favicon comes back. The **All custom favicons** list at the bottom shows
