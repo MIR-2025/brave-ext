@@ -13,6 +13,19 @@ Local only: no accounts, no network, nothing leaves your browser.
 
 ## Use
 
+### Right-click a page (quickest)
+
+Right-click anywhere on a page -> **Site favicon** -> pick an emoji. It applies
+instantly and is remembered for that host. The submenu also has **Use a colored
+letter**, **More...** (image / URL / any emoji -- opens the editor), and **Remove
+custom favicon**.
+
+> **Why not right-click the tab itself?** Chromium extensions can't add items to the
+> tab-strip context menu -- `chrome.contextMenus` has no `"tab"` context (that's a
+> Firefox-only feature). Right-clicking the page is the closest thing that works.
+
+### The popup (full control)
+
 1. Go to the site you want to change, and click the **Site Favicons** icon.
 2. The popup shows that site's hostname and its current icon. Pick a new one:
    - **Emoji** -- type or paste any emoji (e.g. `🚀`)
@@ -38,6 +51,11 @@ Some sites set (or reset) their favicon from JavaScript after the page loads. A 
 
 ## Notes and limits
 
+- **Already-open tabs:** the browser does not inject content scripts into tabs that
+  were already open when you install (or reload) an extension. Saving still applies
+  immediately -- the icon is injected directly into the active tab -- but a page you
+  had open *before* installing won't be protected by the re-assert watcher until you
+  reload it once.
 - Matching is by **exact hostname** -- `docs.example.com` and `example.com` are set
   separately.
 - Only normal `http` / `https` pages. Browser pages (`brave://`), the Web Store, and

@@ -13,7 +13,7 @@
   chrome.storage.local.get('faviconMap').then(({ faviconMap }) => {
     const map = faviconMap || {};
     if (map[host]) boot(map[host]);
-  }).catch(() => {});
+  }).catch((e) => console.warn('[Site Favicons]', e));
 
   // Live updates from the popup: apply on save; removals take effect on next load
   // (the popup reloads the active tab).

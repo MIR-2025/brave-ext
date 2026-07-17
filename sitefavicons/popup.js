@@ -19,24 +19,36 @@ let host = '';
 let activeTabId = null;
 let pending = null; // the href we'll save
 
+// When opened as a standalone window from the right-click menu, the target site
+// comes in as params (the "active tab" would otherwise be this popup window).
+const params = new URLSearchParams(location.search);
+const paramHost = params.get('host');
+const paramTabId = params.get('tabId');
+
 init();
 
 async function init() {
-  let tab;
-  try { [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); } catch (_) { /* ignore */ }
-  activeTabId = tab && tab.id;
-
-  let url = null;
-  try { url = tab && tab.url ? new URL(tab.url) : null; } catch (_) { /* ignore */ }
-
-  if (!url || !/^https?:$/.test(url.protocol)) {
-    hostEl.textContent = url ? url.hostname || url.protocol : '--';
-    editor.hidden = true;
-    unsupported.hidden = false;
-  } else {
-    host = url.hostname;
+  if (paramHost) {
+    host = paramHost;
     hostEl.textContent = host;
-    if (tab.favIconUrl) curfav.src = tab.favIconUrl;
+    activeTabId = paramTabId ? Number(paramTabId) : null;
+  } else {
+    let tab;
+    try { [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); } catch (_) { /* ignore */ }
+    activeTabId = tab && tab.id;
+
+    let url = null;
+    try { url = tab && tab.url ? new URL(tab.url) : null; } catch (_) { /* ignore */ }
+
+    if (!url || !/^https?:$/.test(url.protocol)) {
+      hostEl.textContent = url ? url.hostname || url.protocol : '--';
+      editor.hidden = true;
+      unsupported.hidden = false;
+    } else {
+      host = url.hostname;
+      hostEl.textContent = host;
+      if (tab.favIconUrl) curfav.src = tab.favIconUrl;
+    }
   }
 
   wire();
@@ -91,7 +103,27 @@ async function onSave() {
   await chrome.storage.local.set({ faviconMap: map });
   removeBtn.hidden = false;
   await renderList();
-  flash(saveBtn, 'Saved');
+
+  // Apply right now. We can't rely on the content script being present: content
+  // scripts are not injected into tabs that were already open when the extension
+  // was installed/reloaded, so inject the swap directly.
+  let applied = false;
+  if (activeTabId) {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: activeTabId }, func: applyHrefInPage, args: [pending] });
+      applied = true;
+    } catch (e) { console.error('[Site Favicons]', e); }
+  }
+  flash(saveBtn, applied ? 'Saved ✓' : 'Saved (reload page)');
+}
+
+// Injected: swap the page's icon link for ours.
+function applyHrefInPage(href) {
+  document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach((n) => n.remove());
+  const link = document.createElement('link');
+  link.rel = 'icon';
+  link.href = href;
+  (document.head || document.documentElement).appendChild(link);
 }
 
 async function onRemove() {
