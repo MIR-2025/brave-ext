@@ -22,3 +22,6 @@ npm-debug.log*
 /*.jpeg
 /*.webp
 /*.gif
+
+# QR extension -- kept local, not published (per request)
+qrphone/
