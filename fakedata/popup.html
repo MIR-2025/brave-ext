@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FakeData</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="hdr">
+    <img src="icons/icon32.png" alt="" width="18" height="18">
+    <span>FakeData</span>
+  </header>
+
+  <div class="persona">
+    <div class="p-head">
+      <span>Identity</span>
+      <button id="newId" class="mini" type="button" title="Generate a new fake person">🔄 New</button>
+    </div>
+    <div id="pfields" class="p-fields"></div>
+  </div>
+
+  <button id="fillBtn" class="btn primary" type="button">Fill this page</button>
+  <div class="status" id="status"></div>
+
+  <div class="options">
+    <label><input type="checkbox" id="optOverwrite" checked> Overwrite existing values</label>
+    <label><input type="checkbox" id="optControls" checked> Fill dropdowns, radios &amp; required checkboxes</label>
+    <label><input type="checkbox" id="optVisible" checked> Only visible fields</label>
+  </div>
+
+  <div class="foot">Shortcut <b>Alt+Shift+F</b> &middot; or right-click a page to fill</div>
+
+  <script src="filler.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
