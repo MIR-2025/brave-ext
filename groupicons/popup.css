@@ -154,6 +154,9 @@ html, body {
 .btn.ghost { background: #2c313b; color: var(--text); }
 .btn.ghost:hover { background: #353b47; }
 
+.autorow { display: flex; gap: 6px; margin-bottom: 10px; }
+.autorow .btn { flex: 1; }
+
 .colors { display: flex; gap: 6px; }
 .swatch {
   width: 22px;

@@ -19,7 +19,10 @@ browser.
    tabs inside so you can tell them apart. Click a group to select it.
 4. Click an **emoji** from the palette to make it that group's label, or type/paste
    your own in the box and hit **Set**. **Clear** removes the label.
-5. The **color dots** recolor the selected group.
+5. **✨ Auto** picks an emoji from the group's own sites (a group of GitHub tabs
+   becomes 🐙, YouTube 📺, Gmail 📧, and so on). **✨ All groups** does every group
+   at once. Unrecognized sites fall back to 🌐 -- then just pick one by hand.
+6. The **color dots** recolor the selected group.
 
 Tip: clicking a tab's favicon in a group row jumps to that tab, so you can confirm
 which group you're labelling.
@@ -35,6 +38,12 @@ as its label in the tab strip. So:
   set an arbitrary PNG/SVG on a native group -- the browser does not allow it.
 - Colors are limited to the nine the browser supports (grey, blue, red, yellow,
   green, pink, purple, cyan, orange).
+
+**"Emoji from favicon"?** There is no reliable way to turn an arbitrary favicon
+*image* into a Unicode emoji. What **✨ Auto** actually does is map the *site behind*
+the favicon to an emoji (`github.com` -> 🐙, `youtube.com` -> 📺, ...) using a built-in
+lookup of popular domains plus a few keyword fallbacks, and it picks the emoji shared
+by the most tabs in the group. Everything runs offline from that local table.
 
 ## Permissions
 

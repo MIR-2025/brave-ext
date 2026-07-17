@@ -18,6 +18,45 @@ const EMOJI = [
   '❤️', '🏠', '☕', '🍿', '🌙', '🐛', '📌', '🗂️', '🧩', '🎧'
 ];
 
+// "Emoji from favicon" really means "emoji from the site behind it": there is no
+// reliable way to convert an arbitrary favicon image into a Unicode emoji, so we
+// map domains (and a few keywords) to a fitting emoji instead.
+const DOMAIN_EMOJI = {
+  'github.com': '🐙', 'gitlab.com': '🦊', 'bitbucket.org': '🪣',
+  'youtube.com': '📺', 'youtu.be': '📺', 'music.youtube.com': '🎵', 'vimeo.com': '🎞️', 'twitch.tv': '🎮',
+  'mail.google.com': '📧', 'gmail.com': '📧', 'outlook.com': '📧', 'outlook.office.com': '📧', 'proton.me': '📧',
+  'docs.google.com': '📄', 'sheets.google.com': '📊', 'slides.google.com': '📽️', 'drive.google.com': '📁',
+  'calendar.google.com': '📅', 'meet.google.com': '🎥', 'maps.google.com': '🗺️', 'gemini.google.com': '🤖',
+  'cloud.google.com': '☁️', 'google.com': '🔍',
+  'twitter.com': '🐦', 'x.com': '🐦', 'reddit.com': '👽', 'facebook.com': '👥', 'instagram.com': '📷',
+  'linkedin.com': '💼', 'tiktok.com': '🎵', 'threads.net': '🧵', 'mastodon.social': '🐘', 'bsky.app': '🦋', 'pinterest.com': '📌',
+  'stackoverflow.com': '📚', 'stackexchange.com': '📚', 'developer.mozilla.org': '📘', 'npmjs.com': '📦', 'pypi.org': '🐍',
+  'amazon.com': '🛒', 'ebay.com': '🏷️', 'etsy.com': '🧶', 'walmart.com': '🛒', 'aliexpress.com': '🛒',
+  'netflix.com': '🎬', 'disneyplus.com': '🏰', 'hulu.com': '🎬', 'spotify.com': '🎵', 'soundcloud.com': '🎧', 'music.apple.com': '🎵',
+  'wikipedia.org': '📖', 'notion.so': '📝', 'figma.com': '🎨', 'canva.com': '🎨', 'slack.com': '💬', 'discord.com': '💬',
+  'zoom.us': '🎥', 'trello.com': '📋', 'atlassian.net': '📋', 'asana.com': '✅', 'linear.app': '📐',
+  'openai.com': '🤖', 'chatgpt.com': '🤖', 'claude.ai': '🤖', 'anthropic.com': '🤖', 'perplexity.ai': '🤖', 'huggingface.co': '🤗',
+  'nytimes.com': '📰', 'bbc.com': '📰', 'bbc.co.uk': '📰', 'cnn.com': '📰', 'theguardian.com': '📰',
+  'washingtonpost.com': '📰', 'reuters.com': '📰', 'bloomberg.com': '📰', 'news.ycombinator.com': '🍊',
+  'paypal.com': '💳', 'stripe.com': '💳', 'wise.com': '💱', 'coinbase.com': '🪙', 'binance.com': '🪙',
+  'apple.com': '🍎', 'microsoft.com': '🪟', 'office.com': '🪟',
+  'dropbox.com': '📦', 'medium.com': '✍️', 'substack.com': '📩', 'wordpress.com': '📝',
+  'airbnb.com': '🏠', 'booking.com': '🏨', 'expedia.com': '✈️', 'uber.com': '🚕', 'doordash.com': '🍔',
+  'aws.amazon.com': '☁️', 'console.aws.amazon.com': '☁️', 'portal.azure.com': '☁️', 'cloudflare.com': '☁️',
+  'vercel.com': '▲', 'netlify.com': '🌐', 'digitalocean.com': '🌊',
+  'imdb.com': '🎬', 'goodreads.com': '📚', 'coursera.org': '🎓', 'udemy.com': '🎓', 'khanacademy.org': '🎓', 'duolingo.com': '🦉'
+};
+
+// Conservative substring fallbacks (all >= 4 chars to limit false positives).
+const KEYWORDS = [
+  ['webmail', '📧'], ['video', '📺'], ['music', '🎵'], ['audio', '🎧'], ['podcast', '🎙️'],
+  ['shop', '🛒'], ['store', '🛒'], ['market', '🛒'], ['news', '📰'], ['herald', '📰'], ['tribune', '📰'],
+  ['wiki', '📖'], ['blog', '✍️'], ['bank', '🏦'], ['finance', '💹'], ['crypto', '🪙'], ['cloud', '☁️'],
+  ['gaming', '🎮'], ['photo', '📷'], ['gallery', '🖼️'], ['calendar', '📅'], ['weather', '⛅'],
+  ['recipe', '🍳'], ['travel', '🧳'], ['hotel', '🏨'], ['flight', '✈️'], ['health', '🩺'],
+  ['fitness', '🏋️'], ['sports', '🏆'], ['learn', '🎓'], ['course', '🎓'], ['forum', '💬'], ['social', '👥']
+];
+
 const TAB_GROUP_ID_NONE = -1;
 
 const groupsEl = document.getElementById('groups');
@@ -42,6 +81,10 @@ customInput.addEventListener('keydown', (e) => {
 document.getElementById('clearTitle').addEventListener('click', () => {
   if (selectedId != null) applyTitle(selectedId, '');
 });
+document.getElementById('autoOne').addEventListener('click', () => {
+  if (selectedId != null) autoLabel(selectedId);
+});
+document.getElementById('autoAll').addEventListener('click', autoLabelAll);
 
 render();
 
@@ -181,4 +224,50 @@ function buildColors() {
 function colorHex(name) {
   const f = COLORS.find((c) => c[0] === name);
   return f ? f[1] : '#5f6368';
+}
+
+// ---- auto emoji from the group's sites ----
+
+function emojiForUrl(url) {
+  let host = '';
+  try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ''); } catch (_) { return null; }
+  if (!host) return null;
+  if (host === 'localhost' || /^127\./.test(host) || /^\d+\.\d+\.\d+\.\d+$/.test(host)) return '🛠️';
+  const parts = host.split('.');
+  for (let i = 0; i < parts.length - 1; i++) {
+    const cand = parts.slice(i).join('.');
+    if (DOMAIN_EMOJI[cand]) return DOMAIN_EMOJI[cand];
+  }
+  for (const [kw, em] of KEYWORDS) if (host.includes(kw)) return em;
+  return null;
+}
+
+// The best emoji for a group = the most common one across its tabs' sites.
+async function autoEmojiForGroup(groupId) {
+  let tabs = [];
+  try { tabs = await chrome.tabs.query({ groupId }); } catch (_) { /* ignore */ }
+  const counts = new Map();
+  for (const t of tabs) {
+    const e = emojiForUrl(t.url);
+    if (e) counts.set(e, (counts.get(e) || 0) + 1);
+  }
+  let best = null;
+  let bestN = 0;
+  for (const [e, n] of counts) if (n > bestN) { best = e; bestN = n; }
+  return best || '🌐';
+}
+
+async function autoLabel(groupId) {
+  const emoji = await autoEmojiForGroup(groupId);
+  await applyTitle(groupId, emoji);
+}
+
+async function autoLabelAll() {
+  let groups = [];
+  try { groups = await chrome.tabGroups.query({}); } catch (_) { /* ignore */ }
+  for (const g of groups) {
+    const emoji = await autoEmojiForGroup(g.id);
+    try { await chrome.tabGroups.update(g.id, { title: emoji }); } catch (e) { console.error(e); }
+  }
+  scheduleRender();
 }
