@@ -26,11 +26,32 @@ Pin it, then click the icon to open a split tab.
   - Click **☰** in the pane bar (or use the list shown in an empty pane) to pick
     from your **open tabs** -- favicon, title, and address. The list stays current
     as you open and close tabs elsewhere.
-- **Drag the bar between panes** to resize them.
-- **Layout** button toggles side-by-side vs stacked.
-- **+ Pane** adds another (as many as you want). The **✕** on a pane closes it.
+- **Grid** button: hover the little matrix and click to set an arbitrary grid --
+  2x2, 2x4, 4x4, 3x3, anything up to 6x6. A single row is side-by-side; a single
+  column is stacked.
+- **Drag any gutter** between columns or rows to resize.
+- **+ Pane** adds one more (the grid grows to fit). The **✕** on a pane removes it
+  (the last one just clears instead).
 - Per pane: **↻** reload, **↗** open that page in a normal new tab.
 - Your layout and URLs are remembered and restored when you reopen.
+
+## Bookmarking a set
+
+The entire layout -- grid shape, gutter sizes, every pane's URL, and the name --
+is encoded into this tab's address live, so **the address bar always matches what
+you see**. To save a set:
+
+- Press **Ctrl+D** (or click the star) to bookmark it like any page, or click
+  **🔖 Copy link** to copy the URL and paste it wherever you keep things.
+- Give it a **name** in the toolbar field -- that becomes the bookmark's title.
+- The tab **inherits the first pane's favicon**, so each saved set looks like its
+  primary site in your bookmarks bar. (An empty first pane falls back to the Split
+  Screen icon.)
+
+Opening a bookmarked set rebuilds it exactly. Note: the bookmark points at this
+extension's internal address (`chrome-extension://<id>/...`), which stays valid as
+long as the extension stays installed from the same folder -- moving or reinstalling
+it from a different path changes the id and breaks old bookmarks.
 
 ## The framing trick (and why it needs broad access)
 

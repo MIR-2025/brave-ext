@@ -24,6 +24,7 @@ html, body {
 body { display: flex; flex-direction: column; }
 
 .topbar {
+  position: relative;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -41,6 +42,7 @@ body { display: flex; flex-direction: column; }
   letter-spacing: .2px;
 }
 
+.tb-group { position: relative; display: flex; gap: 8px; }
 .spacer { flex: 1; }
 
 .tbtn {
@@ -53,23 +55,66 @@ body { display: flex; flex-direction: column; }
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
 }
 .tbtn:hover:not(:disabled) { background: #353b47; border-color: #47505e; }
 .tbtn:disabled { opacity: .4; cursor: default; }
 
+.name-input {
+  height: 30px;
+  width: 170px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #171b21;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+.name-input:focus { border-color: var(--accent); }
+
+/* grid-size picker */
+.grid-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  padding: 10px;
+  background: var(--bar);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+}
+.grid-picker[hidden] { display: none; }
+.gp-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 20px);
+  grid-auto-rows: 20px;
+  gap: 4px;
+}
+.gp-cell {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #1a1f27;
+  cursor: pointer;
+}
+.gp-cell.on { background: var(--accent); border-color: var(--accent-hi); }
+.gp-label { margin-top: 8px; text-align: center; color: var(--muted); font-size: 12px; }
+
+/* the grid of panes */
 .panes {
   flex: 1;
-  display: flex;
+  display: grid;
   min-height: 0;
   min-width: 0;
 }
-.panes.row { flex-direction: row; }
-.panes.column { flex-direction: column; }
 
 .pane {
-  flex: 1 1 0;
-  min-width: 80px;
-  min-height: 80px;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: #101216;
@@ -125,7 +170,6 @@ body { display: flex; flex-direction: column; }
   min-height: 0;
   background: #0c0e11;
 }
-
 .frame-wrap iframe {
   position: absolute;
   inset: 0;
@@ -134,7 +178,6 @@ body { display: flex; flex-direction: column; }
   border: 0;
   background: #ffffff;
 }
-
 .frame-wrap .empty {
   position: absolute;
   inset: 0;
@@ -162,7 +205,7 @@ body { display: flex; flex-direction: column; }
   background: #0f1318;
 }
 
-/* open-tabs menu (from the pane-bar button) */
+/* open-tabs picker */
 .tab-menu {
   position: absolute;
   top: 100%;
@@ -180,7 +223,6 @@ body { display: flex; flex-direction: column; }
 }
 .tab-menu[hidden] { display: none; }
 
-/* shared tab-row styling for menu + empty-state list */
 .tablist { display: flex; flex-direction: column; }
 .tab-row {
   display: flex;
@@ -198,31 +240,16 @@ body { display: flex; flex-direction: column; }
 .tab-row:hover { background: #2c313b; }
 .tab-row .fav { flex: 0 0 auto; border-radius: 3px; }
 .tab-text { display: flex; flex-direction: column; min-width: 0; }
-.tab-title {
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tab-url {
-  font-size: 11px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.tab-title { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab-url { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tab-empty { padding: 10px; color: var(--muted); font-size: 12px; }
 
-.divider {
-  flex: 0 0 6px;
-  background: var(--divider);
-  position: relative;
-}
-.divider:hover, .divider:active { background: var(--divider-hi); }
-.divider.v { cursor: col-resize; }
-.divider.h { cursor: row-resize; }
+/* draggable grid gutters */
+.gutter { z-index: 5; background: var(--divider); }
+.gutter:hover, .gutter:active { background: var(--divider-hi); }
+.gutter.col { cursor: col-resize; }
+.gutter.row { cursor: row-resize; }
 
-/* while dragging a divider, let the mouse move over the iframes freely */
 body.dragging { user-select: none; }
 body.dragging iframe { pointer-events: none; }
 body.dragging.col-resize { cursor: col-resize; }

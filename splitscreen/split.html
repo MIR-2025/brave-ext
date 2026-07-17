@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Split Screen</title>
+  <link id="favicon" rel="icon" href="icons/icon32.png">
   <link rel="stylesheet" href="split.css">
 </head>
 <body>
@@ -12,12 +13,20 @@
       <img src="icons/icon32.png" alt="" width="20" height="20">
       <span>Split Screen</span>
     </div>
+
+    <div class="tb-group">
+      <button id="gridBtn" class="tbtn" title="Choose a grid layout">▦ Grid: <span id="gridLabel">2 × 1</span></button>
+      <button id="addPane" class="tbtn" title="Add a pane">+ Pane</button>
+      <div id="gridPicker" class="grid-picker" hidden></div>
+    </div>
+
     <div class="spacer"></div>
-    <button id="toggleDir" class="tbtn" title="Switch between side-by-side and stacked">Layout: Side by side</button>
-    <button id="addPane" class="tbtn" title="Add another pane">+ Pane</button>
+
+    <input id="setName" class="name-input" type="text" spellcheck="false" placeholder="Name this set">
+    <button id="copyLink" class="tbtn" title="Copy a bookmarkable link to this set">🔖 Copy link</button>
   </header>
 
-  <div class="panes row" id="panes"></div>
+  <div class="panes" id="panes"></div>
 
   <script src="split.js"></script>
 </body>
