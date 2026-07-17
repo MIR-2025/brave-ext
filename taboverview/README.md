@@ -18,6 +18,27 @@ only: nothing leaves your browser.
 - **✕** on a card closes that tab.
 - **Search** by title or URL to filter.
 - Tabs are grouped by window; the active tab in each window is outlined.
+- **JS heap ↻** reads each tab's approximate JS heap and shows it on the card (see
+  the honest caveats below).
+
+## Per-tab memory (the honest bit)
+
+You cannot get a tab's **real total memory** (the numbers in Brave's Task Manager)
+from an extension -- the API that exposes it, `chrome.processes`, is **Dev-channel
+only** and is absent from stable Brave/Chrome.
+
+What the badge shows instead is each tab's **JavaScript heap** (`usedJSHeapSize`),
+read by briefly injecting a one-line script into each tab. That means:
+
+- It's the **JS heap only** -- not images, video, GPU, or the render process. A tab
+  can use a lot of real memory with a small heap, so treat this as a rough signal
+  for "which tabs are running heavy JavaScript," not a true memory total.
+- The number is **approximate**. `performance.memory` is coarse by design, and
+  **Brave's fingerprinting protection may round it further -- or return nothing at
+  all**, in which case cards simply show no badge.
+- **Discarded** (sleeping) tabs show `unloaded`; restricted pages (`brave://`, the
+  Web Store, other extension pages) show no badge.
+- It's read on demand -- when the page opens and when you click **JS heap ↻**.
 
 ## About the thumbnails (the honest bit)
 
@@ -37,7 +58,9 @@ tab's **last-seen** preview. Which means:
 
 ## Permissions
 
-- **Host access to all sites** -- required by `captureVisibleTab` to snapshot the
-  pages you view. Captures are downscaled to a small thumbnail and kept locally in
-  session storage; there is no tracking and nothing is sent anywhere.
+- **Host access to all sites** -- required by `captureVisibleTab` (thumbnails) and by
+  reading each tab's JS heap. Captures are downscaled to a small thumbnail and kept
+  locally in session storage; there is no tracking and nothing is sent anywhere.
 - **`storage`** -- holds the thumbnail cache (session-only).
+- **`scripting`** -- to inject the one-line `performance.memory` read into each tab
+  for the JS-heap badge.

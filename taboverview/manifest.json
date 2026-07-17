@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Tab Overview -- visual grid of open tabs",
-  "version": "1.0.0",
-  "description": "See all your open tabs in one grid with thumbnails, search, and one-click switch or close. Thumbnails are captured as you browse. Fully local.",
-  "permissions": ["storage"],
+  "version": "1.1.0",
+  "description": "See all your open tabs in one grid with thumbnails, per-tab JS heap, search, and one-click switch or close. Thumbnails are captured as you browse. Fully local.",
+  "permissions": ["storage", "scripting"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_title": "Tab Overview",

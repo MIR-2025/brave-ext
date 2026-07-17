@@ -9,6 +9,7 @@ const countEl = document.getElementById('count');
 let myTabId = null;
 let allTabs = [];
 let thumbs = {};
+let heap = {};   // tabId -> { bytes } | { state: 'unloaded' | 'na' }
 
 init();
 
@@ -17,6 +18,8 @@ async function init() {
   await reload();
   searchEl.addEventListener('input', render);
   searchEl.focus();
+  document.getElementById('memBtn').addEventListener('click', fetchHeap);
+  fetchHeap();
 
   const refresh = debounce(reload, 200);
   for (const ev of ['onCreated', 'onRemoved', 'onUpdated', 'onActivated', 'onMoved', 'onAttached', 'onDetached']) {
@@ -128,6 +131,12 @@ function card(t) {
   close.addEventListener('click', (e) => { e.stopPropagation(); closeTab(t.id, el); });
   thumb.appendChild(close);
 
+  const mem = document.createElement('span');
+  mem.className = 'mem';
+  mem.title = 'JS heap (approximate)';
+  setMemText(mem, heap[t.id]);
+  thumb.appendChild(mem);
+
   const meta = document.createElement('div');
   meta.className = 'meta';
   meta.appendChild(favImg('fav', t));
@@ -181,4 +190,53 @@ function updateThumb(id) {
     thumbEl.insertBefore(img, close || null);
   }
   img.src = th.dataUrl;
+}
+
+// ---- per-tab JS heap (best effort; see README) ----
+
+// Injected into each tab. performance.memory is Chrome-specific, JS-heap only, and
+// may be coarsened or unavailable (e.g. under Brave's fingerprinting protection).
+function readHeap() {
+  try { return (window.performance && performance.memory) ? performance.memory.usedJSHeapSize : null; }
+  catch (e) { return null; }
+}
+
+async function fetchHeap() {
+  const btn = document.getElementById('memBtn');
+  if (btn) btn.classList.add('busy');
+  const targets = allTabs.filter((t) => t.id !== myTabId);
+  await Promise.all(targets.map(async (t) => {
+    if (t.discarded) { heap[t.id] = { state: 'unloaded' }; updateMemBadge(t.id); return; }
+    if (!/^(https?|file):/i.test(t.url || '')) { heap[t.id] = { state: 'na' }; updateMemBadge(t.id); return; }
+    try {
+      const [res] = await chrome.scripting.executeScript({ target: { tabId: t.id }, func: readHeap });
+      const bytes = res && typeof res.result === 'number' ? res.result : null;
+      heap[t.id] = (bytes != null) ? { bytes } : { state: 'na' };
+    } catch (_) {
+      heap[t.id] = { state: 'na' };
+    }
+    updateMemBadge(t.id);
+  }));
+  if (btn) btn.classList.remove('busy');
+}
+
+function fmtBytes(b) {
+  const mb = b / 1048576;
+  if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
+  if (mb >= 10) return Math.round(mb) + ' MB';
+  return mb.toFixed(1) + ' MB';
+}
+
+function setMemText(el, h) {
+  if (!h) { el.hidden = true; el.classList.remove('dim'); return; }
+  if (h.state === 'unloaded') { el.textContent = 'unloaded'; el.classList.add('dim'); el.hidden = false; return; }
+  if (h.state === 'na' || typeof h.bytes !== 'number') { el.hidden = true; return; }
+  el.classList.remove('dim');
+  el.textContent = fmtBytes(h.bytes);
+  el.hidden = false;
+}
+
+function updateMemBadge(id) {
+  const el = grouproot.querySelector('.card[data-id="' + id + '"] .mem');
+  if (el) setMemText(el, heap[id]);
 }

@@ -44,7 +44,32 @@ html, body {
   outline: none;
 }
 .search:focus { border-color: var(--accent); }
+.membtn {
+  border: 1px solid var(--line);
+  background: #2c313b;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.membtn:hover { background: #353b47; }
+.membtn.busy { opacity: .6; cursor: default; }
 .count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.mem {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(10, 12, 16, .72);
+  color: #dfe4ea;
+  padding: 2px 7px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.mem.dim { color: var(--muted); }
+.mem[hidden] { display: none; }
 
 .grouproot { padding: 18px 20px 60px; }
 .group-title {
