@@ -10,7 +10,8 @@ telemetry. Everything runs locally in your browser and nothing is sent anywhere.
 | Folder | What it does |
 | --- | --- |
 | [`fullpage/`](fullpage/) | Full-page screenshots. Scrolls the page, stitches every viewport into one image, and exports as **PNG** or **PDF**, or copies to the clipboard. A local clone of GoFullPage. |
-| [`splitscreen/`](splitscreen/) | View two or more live pages **side by side in one tab**. Draggable dividers, side-by-side or stacked layouts, an open-tabs picker, a right-click "Open in Split Screen" menu, and session restore. |
+| [`splitscreen/`](splitscreen/) | View two or more live pages **side by side in one tab**. Arbitrary R×C grids with draggable gutters, an open-tabs picker, a right-click "Open in Split Screen" menu, and **bookmarkable sets** (each wearing its first pane's favicon). |
+| [`groupicons/`](groupicons/) | Put an **emoji icon on a tab group** instead of a text label, and recolor groups. |
 
 Planned: `fakedata/` (context-aware form filler) and `markdownview/` (render
 local and remote `.md` files).

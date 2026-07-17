@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Group Icons</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="hdr">
+    <img src="icons/icon32.png" alt="" width="18" height="18">
+    <span>Group Icons</span>
+  </header>
+
+  <div id="empty" class="empty" hidden>
+    No tab groups yet. Right-click a tab and choose <b>"Add tab to new group"</b>,
+    then come back here.
+  </div>
+
+  <div id="groups" class="groups"></div>
+
+  <div class="toolbox" id="toolbox">
+    <div class="hint" id="selHint">Select a group above, then pick an icon.</div>
+    <div class="palette" id="palette"></div>
+    <div class="customrow">
+      <input id="custom" maxlength="24" type="text" spellcheck="false" placeholder="...or type / paste an emoji or short text">
+      <button id="applyCustom" class="btn" type="button">Set</button>
+      <button id="clearTitle" class="btn ghost" type="button" title="Remove the label">Clear</button>
+    </div>
+    <div class="colors" id="colors"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
