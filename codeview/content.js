@@ -7,6 +7,19 @@
   // Already rendered (e.g. injected twice, or the manual button on an auto page).
   if (document.body && document.body.classList.contains('cv')) return;
 
+  // Declared up here so the hoisted render() (called below) can read it -- a `const`
+  // stays in the temporal dead zone until its line runs.
+  const EXT_LANG = {
+    js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript',
+    ts: 'typescript', mts: 'typescript', cts: 'typescript', tsx: 'typescript',
+    json: 'json', jsonc: 'json', sh: 'bash', bash: 'bash', zsh: 'bash',
+    py: 'python', pyw: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
+    c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp', cs: 'csharp',
+    php: 'php', css: 'css', scss: 'scss', less: 'less', yaml: 'yaml', yml: 'yaml',
+    toml: 'ini', ini: 'ini', sql: 'sql', lua: 'lua', swift: 'swift', kt: 'kotlin',
+    kts: 'kotlin', pl: 'perl', diff: 'diff', patch: 'diff', md: 'markdown'
+  };
+
   const ct = (document.contentType || '').toLowerCase();
   const APP = ['application/json', 'application/javascript', 'text/javascript', 'application/xml',
     'application/x-sh', 'application/x-yaml', 'application/toml', 'application/sql', 'application/x-httpd-php'];
@@ -48,17 +61,6 @@
     if (pre) return pre.textContent;
     return document.body ? document.body.textContent : '';
   }
-
-  const EXT_LANG = {
-    js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript',
-    ts: 'typescript', mts: 'typescript', cts: 'typescript', tsx: 'typescript',
-    json: 'json', jsonc: 'json', sh: 'bash', bash: 'bash', zsh: 'bash',
-    py: 'python', pyw: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
-    c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp', cs: 'csharp',
-    php: 'php', css: 'css', scss: 'scss', less: 'less', yaml: 'yaml', yml: 'yaml',
-    toml: 'ini', ini: 'ini', sql: 'sql', lua: 'lua', swift: 'swift', kt: 'kotlin',
-    kts: 'kotlin', pl: 'perl', diff: 'diff', patch: 'diff', md: 'markdown'
-  };
 
   function esc(s) {
     return String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
