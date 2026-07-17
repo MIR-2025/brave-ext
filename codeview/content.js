@@ -102,33 +102,36 @@
     } catch (_) { /* ignore */ }
   }
 
+  function formatKind(ext, lang) {
+    if (['json', 'jsonc'].indexOf(ext) !== -1 || lang === 'json') return 'json';
+    if (['js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx'].indexOf(ext) !== -1 || lang === 'javascript' || lang === 'typescript') return 'js';
+    if (['css', 'scss', 'less'].indexOf(ext) !== -1 || lang === 'css' || lang === 'scss' || lang === 'less') return 'css';
+    if (['html', 'htm', 'xml', 'svg', 'vue'].indexOf(ext) !== -1 || lang === 'xml') return 'html';
+    return null;
+  }
+  function beautify(text, kind) {
+    const opts = { indent_size: 2, end_with_newline: true };
+    if (kind === 'json') {
+      try { return JSON.stringify(JSON.parse(text), null, 2) + '\n'; } catch (_) { /* fall through (JSONC etc.) */ }
+      return beautifier.js(text, opts);
+    }
+    if (kind === 'css') return beautifier.css(text, opts);
+    if (kind === 'html') return beautifier.html(text, opts);
+    return beautifier.js(text, opts);
+  }
+  function looksMinified(text) {
+    const lines = text.split('\n').length;
+    return text.length > 1000 && (text.length / lines > 200 || lines <= 2);
+  }
+
   function render(rawText, conf) {
     const fileName = decodeURIComponent((location.pathname.split('/').pop() || '').split('?')[0]) || 'source';
-    const ext = (fileName.match(/\.([a-z0-9]+)$/i) || [])[1] ? fileName.match(/\.([a-z0-9]+)$/i)[1].toLowerCase() : '';
+    const extMatch = fileName.match(/\.([a-z0-9]+)$/i);
+    const ext = extMatch ? extMatch[1].toLowerCase() : '';
     document.title = fileName;
     if (conf.cvFavicon) setFavicon(ext, location.href);
 
-    // highlight
-    let lang = EXT_LANG[ext];
-    let html;
-    let usedLang;
-    if (lang && hljs.getLanguage(lang)) {
-      html = hljs.highlight(rawText, { language: lang, ignoreIllegals: true }).value;
-      usedLang = lang;
-    } else if (rawText.length <= 300000) {
-      const r = hljs.highlightAuto(rawText);
-      html = r.value;
-      usedLang = r.language || 'text';
-    } else {
-      html = esc(rawText);
-      usedLang = 'text';
-    }
-
-    const lines = rawText.split('\n');
-    if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
-    const nLines = Math.max(1, lines.length);
-    let gutter = '';
-    for (let i = 1; i <= nLines; i++) gutter += i + '\n';
+    const canFormat = typeof beautifier !== 'undefined' && !!formatKind(ext, EXT_LANG[ext] || '');
 
     document.body.className = 'cv' + (conf.cvWrap ? ' cv-wrapped' : '');
     document.body.setAttribute('data-cv-theme', conf.cvTheme || 'auto');
@@ -138,10 +141,16 @@
         '<span class="cv-lang"></span>' +
         '<span class="cv-flex"></span>' +
         '<span class="cv-info"></span>' +
+        (canFormat ? '<button class="cv-btn" data-act="format">Format</button>' : '') +
         '<button class="cv-btn" data-act="wrap">Wrap</button>' +
         '<button class="cv-btn" data-act="raw">Raw</button>' +
         '<button class="cv-btn" data-act="copy">Copy</button>' +
         '<button class="cv-btn" data-act="theme">Theme</button>' +
+      '</div>' +
+      '<div class="cv-nudge" hidden>' +
+        '<span>This file looks minified.</span>' +
+        '<button class="cv-nudge-btn" data-act="format">Format it</button>' +
+        '<button class="cv-nudge-x" data-act="dismiss" title="Dismiss">✕</button>' +
       '</div>' +
       '<div class="cv-wrap">' +
         '<pre class="cv-gutter"></pre>' +
@@ -149,20 +158,72 @@
       '</div>';
 
     document.querySelector('.cv-name').textContent = fileName;
-    document.querySelector('.cv-lang').textContent = usedLang;
-    document.querySelector('.cv-info').textContent = nLines + (nLines === 1 ? ' line' : ' lines');
-    document.querySelector('.cv-gutter').textContent = gutter;
+    const langEl = document.querySelector('.cv-lang');
+    const infoEl = document.querySelector('.cv-info');
+    const gutterEl = document.querySelector('.cv-gutter');
     const codeEl = document.querySelector('.cv-code code');
-    codeEl.innerHTML = html;
+    const nudge = document.querySelector('.cv-nudge');
 
+    let current = rawText;   // the text currently shown (original, or formatted)
+    let html = '';           // highlighted HTML of `current`
     let showingRaw = false;
-    document.querySelector('.cv-toolbar').addEventListener('click', (e) => {
+
+    applyContent(rawText);
+    if (canFormat && looksMinified(rawText)) nudge.hidden = false;
+
+    document.querySelector('.cv-toolbar').addEventListener('click', onAction);
+    nudge.addEventListener('click', onAction);
+
+    function onAction(e) {
       const act = e.target && e.target.getAttribute && e.target.getAttribute('data-act');
-      if (act === 'wrap') toggleWrap();
+      if (act === 'format') doFormat();
+      else if (act === 'dismiss') { nudge.hidden = true; }
+      else if (act === 'wrap') toggleWrap();
       else if (act === 'raw') toggleRaw();
       else if (act === 'copy') copy(e.target);
       else if (act === 'theme') cycleTheme();
-    });
+    }
+
+    function applyContent(text) {
+      current = text;
+      showingRaw = false;
+      const raw2 = document.querySelector('[data-act="raw"]');
+      if (raw2) raw2.textContent = 'Raw';
+
+      const lang = EXT_LANG[ext];
+      let usedLang;
+      if (lang && hljs.getLanguage(lang)) {
+        html = hljs.highlight(text, { language: lang, ignoreIllegals: true }).value;
+        usedLang = lang;
+      } else if (text.length <= 300000) {
+        const r = hljs.highlightAuto(text);
+        html = r.value;
+        usedLang = r.language || 'text';
+      } else {
+        html = esc(text);
+        usedLang = 'text';
+      }
+
+      const lines = text.split('\n');
+      if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+      const nLines = Math.max(1, lines.length);
+      let gutter = '';
+      for (let i = 1; i <= nLines; i++) gutter += i + '\n';
+
+      langEl.textContent = usedLang;
+      infoEl.textContent = nLines + (nLines === 1 ? ' line' : ' lines');
+      gutterEl.textContent = gutter;
+      codeEl.innerHTML = html;
+    }
+
+    function doFormat() {
+      const kind = formatKind(ext, EXT_LANG[ext] || langEl.textContent);
+      if (!kind || typeof beautifier === 'undefined') return;
+      try {
+        applyContent(beautify(current, kind));
+        nudge.hidden = true;
+      } catch (e) { console.error('[Code Viewer] format failed', e); }
+    }
 
     function toggleWrap() {
       const on = document.body.classList.toggle('cv-wrapped');
@@ -171,17 +232,17 @@
     function toggleRaw() {
       showingRaw = !showingRaw;
       const btn = document.querySelector('[data-act="raw"]');
-      if (showingRaw) { codeEl.textContent = rawText; if (btn) btn.textContent = 'Highlighted'; }
+      if (showingRaw) { codeEl.textContent = current; if (btn) btn.textContent = 'Highlighted'; }
       else { codeEl.innerHTML = html; if (btn) btn.textContent = 'Raw'; }
     }
     async function copy(btn) {
       const label = btn.textContent;
       try {
-        await navigator.clipboard.writeText(rawText);
+        await navigator.clipboard.writeText(current);
       } catch (_) {
         try {
           const ta = document.createElement('textarea');
-          ta.value = rawText;
+          ta.value = current;
           document.body.appendChild(ta);
           ta.select();
           document.execCommand('copy');

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Code Viewer -- syntax-highlighted source files",
-  "version": "1.0.0",
-  "description": "Renders source files (local and remote) with syntax highlighting, line numbers, dark/light themes, wrap and raw toggles, and copy. Fully local.",
+  "version": "1.1.0",
+  "description": "Renders source files (local and remote) with syntax highlighting, line numbers, dark/light themes, a Format button for minified JS/CSS/JSON/HTML, wrap/raw toggles, and copy. Fully local.",
   "permissions": ["storage", "clipboardWrite", "scripting", "activeTab"],
   "action": {
     "default_title": "Code Viewer",
@@ -36,7 +36,7 @@
         "file:///*.toml", "file:///*.ini", "file:///*.sql", "file:///*.lua", "file:///*.swift", "file:///*.kt", "file:///*.pl",
         "file:///*.diff", "file:///*.patch"
       ],
-      "js": ["lib/hljs.min.js", "content.js"],
+      "js": ["lib/hljs.min.js", "lib/beautify.min.js", "content.js"],
       "css": ["code.css"],
       "run_at": "document_end"
     }

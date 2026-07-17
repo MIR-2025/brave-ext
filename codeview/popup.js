@@ -20,7 +20,7 @@ async function highlightThisTab() {
   try { [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); } catch (_) { /* ignore */ }
   if (!tab || !tab.id) { applyMsg.textContent = 'No active tab.'; return; }
   try {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['lib/hljs.min.js', 'content.js'] });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['lib/hljs.min.js', 'lib/beautify.min.js', 'content.js'] });
     window.close();
   } catch (e) {
     console.error(e);

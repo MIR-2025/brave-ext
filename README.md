@@ -43,8 +43,8 @@ none of these need. Skipping it also keeps the code fully in your hands.
 ## Design principles
 
 - **Manifest V3**, no build step, no bundler, and nothing fetched at runtime. The
-  only third-party libraries are `marked` (in `markdownview/`) and `highlight.js`
-  (in `codeview/`), each vendored locally.
+  only third-party libraries are `marked` (in `markdownview/`), and `highlight.js`
+  plus `js-beautify` (in `codeview/`), each vendored locally.
 - **Local only** -- no network calls, no analytics, no accounts.
 - **Least privilege** -- each extension asks for the narrowest permissions that
   make it work, and each README explains every permission it requests.

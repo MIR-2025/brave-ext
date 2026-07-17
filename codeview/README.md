@@ -18,10 +18,25 @@ Open any supported source file -- a local `file://` path or a remote one served 
 text (a raw GitHub URL, a dotfile, etc.). It highlights automatically. The toolbar:
 
 - **language badge** -- what it detected
+- **Format** -- pretty-print the file (JS/TS, CSS, JSON, HTML). Appears only for
+  those languages.
 - **Wrap** -- toggle line wrapping (line numbers hide while wrapped)
 - **Raw** -- flip between highlighted and plain text
 - **Copy** -- copy the whole file
 - **Theme** -- Auto -> Light -> Dark (remembered)
+
+## Formatting minified files
+
+Open a minified file (a `*.min.js`, a one-line JSON blob, packed CSS) and Code
+Viewer notices, showing a **"This file looks minified. [Format it]"** nudge. One
+click un-minifies it -- and the copy button then gives you the formatted text.
+
+- **JS / TS**, **CSS**, and **HTML** are beautified with a bundled copy of
+  **js-beautify**; **JSON** is re-serialised with 2-space indent.
+- You can also format any (non-minified) file of those types with the **Format**
+  toolbar button.
+- Other languages (Python, Go, ...) don't get a Format button -- js-beautify only
+  covers the web languages, and those files are rarely minified anyway.
 
 The popup (extension icon) has an on/off switch, a favicon toggle, a default-wrap
 option, and the default theme.
@@ -44,9 +59,12 @@ Swift, Kotlin, diffs, and more. Files it doesn't recognize are shown as plain te
 
 ## Third-party
 
-`lib/hljs.min.js` is [highlight.js](https://github.com/highlightjs/highlight.js)
-(common-languages browser build, BSD-3-Clause), vendored unmodified. Its license is
-in `lib/hljs.LICENSE`.
+Both vendored unmodified, licenses alongside them in `lib/`:
+
+- `lib/hljs.min.js` -- [highlight.js](https://github.com/highlightjs/highlight.js)
+  (common-languages build, BSD-3-Clause) for syntax highlighting.
+- `lib/beautify.min.js` -- [js-beautify](https://github.com/beautifier/js-beautify)
+  (MIT) for the Format feature.
 
 ## Permissions
 
