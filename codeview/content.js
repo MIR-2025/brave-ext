@@ -6,9 +6,13 @@
 (async function () {
   const ct = (document.contentType || '').toLowerCase();
   const APP = ['application/json', 'application/javascript', 'text/javascript', 'application/xml',
-    'application/x-sh', 'application/x-yaml', 'application/toml', 'application/sql'];
-  // Code is served as text, but text/html means a page meant to render -- leave it.
-  const isCode = (ct.startsWith('text/') && ct !== 'text/html') || APP.indexOf(ct) !== -1;
+    'application/x-sh', 'application/x-yaml', 'application/toml', 'application/sql', 'application/x-httpd-php'];
+  // The browser renders a plain-text file as a single <pre> in the body -- a strong
+  // signal it's source even if the content type is something unexpected.
+  const b0 = document.body;
+  const lonePre = !!(b0 && b0.children.length === 1 && b0.firstElementChild && b0.firstElementChild.tagName === 'PRE');
+  // Code is served as text; text/html means a page meant to render -- leave that alone.
+  const isCode = ct !== 'text/html' && (ct.startsWith('text/') || APP.indexOf(ct) !== -1 || lonePre);
 
   if (isCode) { try { document.documentElement.style.visibility = 'hidden'; } catch (_) { /* ignore */ } }
   const reveal = () => { try { document.documentElement.style.visibility = ''; } catch (_) { /* ignore */ } };
@@ -22,10 +26,16 @@
     if (typeof s.cvFavicon === 'boolean') cfg.cvFavicon = s.cvFavicon;
   } catch (_) { /* ignore */ }
 
-  if (!isCode || !cfg.cvEnabled || typeof hljs === 'undefined') { reveal(); return; }
+  if (!isCode || !cfg.cvEnabled || typeof hljs === 'undefined') {
+    // Leave a breadcrumb so "nothing happened" is diagnosable from the console.
+    console.debug('[Code Viewer] not transforming:',
+      { contentType: ct, isCode, enabled: cfg.cvEnabled, hljsLoaded: typeof hljs !== 'undefined' });
+    reveal();
+    return;
+  }
 
   const raw = extractRaw();
-  if (raw == null || raw === '') { reveal(); return; }
+  if (raw == null || raw === '') { console.debug('[Code Viewer] empty body'); reveal(); return; }
 
   try { render(raw, cfg); } catch (e) { console.error('[Code Viewer]', e); }
   reveal();
