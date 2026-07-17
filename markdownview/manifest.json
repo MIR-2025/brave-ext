@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "MarkdownView -- render .md in the browser",
+  "version": "1.0.0",
+  "description": "Renders Markdown files (local and remote) as clean, styled pages with a reading layout, dark/light themes, a table of contents, and a raw toggle. Local only.",
+  "permissions": ["storage"],
+  "action": {
+    "default_title": "MarkdownView",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*/*.md", "*://*/*.markdown", "*://*/*.mdown", "*://*/*.mkd", "*://*/*.mdwn", "*://*/*.mkdn",
+        "file:///*.md", "file:///*.markdown", "file:///*.mdown", "file:///*.mkd", "file:///*.mdwn", "file:///*.mkdn"
+      ],
+      "js": ["lib/marked.umd.js", "content.js"],
+      "css": ["markdown.css"],
+      "run_at": "document_end"
+    }
+  ]
+}

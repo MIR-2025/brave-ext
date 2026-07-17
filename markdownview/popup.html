@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MarkdownView</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="hdr">
+    <img src="icons/icon32.png" alt="" width="18" height="18">
+    <span>MarkdownView</span>
+  </header>
+
+  <div class="body">
+    <label class="row">
+      <input type="checkbox" id="enabled" checked>
+      <span>Render markdown files</span>
+    </label>
+
+    <label class="row">
+      <span>Theme</span>
+      <select id="theme">
+        <option value="auto">Auto (match system)</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </label>
+
+    <div class="note">
+      <b>Viewing local <code>.md</code> files?</b>
+      Open <code>brave://extensions</code>, click <b>Details</b> on MarkdownView,
+      and turn on <b>Allow access to file URLs</b>. Then open any
+      <code>file:///…/file.md</code>.
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

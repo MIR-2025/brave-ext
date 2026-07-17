@@ -13,8 +13,7 @@ telemetry. Everything runs locally in your browser and nothing is sent anywhere.
 | [`splitscreen/`](splitscreen/) | View two or more live pages **side by side in one tab**. Arbitrary R×C grids with draggable gutters, an open-tabs picker, a right-click "Open in Split Screen" menu, and **bookmarkable sets** (each wearing its first pane's favicon). |
 | [`groupicons/`](groupicons/) | Put an **emoji icon on a tab group** instead of a text label, and recolor groups. |
 | [`fakedata/`](fakedata/) | **Smart form filler.** Fills forms with one coherent fake persona, matching each field (email, name, address, Luhn-valid test card...). Popup, right-click, or Alt+Shift+F. |
-
-Planned: `markdownview/` (render local and remote `.md` files).
+| [`markdownview/`](markdownview/) | **Renders `.md` files** (local and remote) as clean pages -- reading layout, dark/light themes, table of contents, raw toggle. |
 
 ## Install (load unpacked)
 
@@ -40,7 +39,8 @@ none of these need. Skipping it also keeps the code fully in your hands.
 
 ## Design principles
 
-- **Manifest V3**, no build step, no bundler, no runtime dependencies.
+- **Manifest V3**, no build step, no bundler, and nothing fetched at runtime. The
+  only third-party library is `marked`, vendored locally inside `markdownview/`.
 - **Local only** -- no network calls, no analytics, no accounts.
 - **Least privilege** -- each extension asks for the narrowest permissions that
   make it work, and each README explains every permission it requests.
