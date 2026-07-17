@@ -11,7 +11,11 @@ const gridLabel = document.getElementById('gridLabel');
 const gridPicker = document.getElementById('gridPicker');
 const nameInput = document.getElementById('setName');
 const copyBtn = document.getElementById('copyLink');
+const saveBtn = document.getElementById('saveSet');
+const bookmarksEl = document.getElementById('bookmarks');
 const favicon = document.getElementById('favicon');
+
+let savedSets = [];
 
 const MAX_TRACKS = 6;
 const MIN_SIZE = 80;
@@ -45,6 +49,9 @@ addBtn.addEventListener('click', () => {
 gridBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleGridPicker(); });
 nameInput.addEventListener('input', () => { setName = nameInput.value; save(); });
 copyBtn.addEventListener('click', onCopyLink);
+saveBtn.addEventListener('click', saveCurrentSet);
+
+initBookmarks();
 
 document.addEventListener('mousedown', (e) => {
   if (!e.target.closest('.tab-menu') && !e.target.closest('.tabs')) closeMenus();
@@ -445,6 +452,7 @@ function save() {
     history.replaceState(null, '', location.pathname + '?set=' + enc);
   } catch (_) { /* ignore */ }
   updateIdentity();
+  updateActiveChips();
 }
 
 function b64urlEncode(str) {
@@ -507,6 +515,99 @@ async function restore() {
   building = false;
   if (add) fillFirstEmpty(add);
   save();
+}
+
+// ---- saved sets (in-extension bookmarks bar) ----
+
+async function initBookmarks() {
+  try { savedSets = (await chrome.storage.local.get('savedSets')).savedSets || []; } catch (_) { savedSets = []; }
+  if (!Array.isArray(savedSets)) savedSets = [];
+  renderBookmarks();
+}
+
+function persistSaved() {
+  try { chrome.storage.local.set({ savedSets }); } catch (_) { /* ignore */ }
+}
+
+function saveCurrentSet() {
+  const snap = snapshot();
+  const firstDom = (() => { const p = panes.find((x) => x.url); return p ? domainOf(p.url) : ''; })();
+  const name = String(setName || firstDom || 'Set').trim().slice(0, 40) || 'Set';
+  savedSets.push({ id: 'set_' + Date.now(), name, snap });
+  persistSaved();
+  renderBookmarks();
+}
+
+function deleteSet(id) {
+  savedSets = savedSets.filter((s) => s.id !== id);
+  persistSaved();
+  renderBookmarks();
+}
+
+function firstUrlOf(snap) {
+  return (snap && Array.isArray(snap.u) ? snap.u.find(Boolean) : '') || '';
+}
+
+function renderBookmarks() {
+  bookmarksEl.textContent = '';
+  const label = document.createElement('span');
+  label.className = 'bm-label';
+  label.textContent = 'Saved:';
+  bookmarksEl.appendChild(label);
+
+  if (!savedSets.length) {
+    const e = document.createElement('span');
+    e.className = 'bm-empty';
+    e.textContent = 'none yet -- build a layout and hit ★ Save';
+    bookmarksEl.appendChild(e);
+    return;
+  }
+
+  for (const s of savedSets) {
+    const chip = document.createElement('div');
+    chip.className = 'bm-chip' + (s.name === setName && setName ? ' active' : '');
+    chip.dataset.name = s.name;
+    chip.title = 'Open "' + s.name + '"';
+
+    const fav = document.createElement('img');
+    fav.referrerPolicy = 'no-referrer';
+    const fu = firstUrlOf(s.snap);
+    fav.src = fu ? faviconHref(fu) : 'icons/icon32.png';
+    fav.onerror = () => { fav.src = 'icons/icon32.png'; };
+
+    const nm = document.createElement('span');
+    nm.className = 'bm-name';
+    nm.textContent = s.name;
+
+    const x = document.createElement('span');
+    x.className = 'x';
+    x.textContent = '✕';
+    x.title = 'Remove';
+    x.addEventListener('click', (e) => { e.stopPropagation(); deleteSet(s.id); });
+
+    chip.appendChild(fav);
+    chip.appendChild(nm);
+    chip.appendChild(x);
+    chip.addEventListener('click', () => loadSet(s.snap));
+    bookmarksEl.appendChild(chip);
+  }
+}
+
+function updateActiveChips() {
+  for (const chip of bookmarksEl.querySelectorAll('.bm-chip')) {
+    chip.classList.toggle('active', !!setName && chip.dataset.name === setName);
+  }
+}
+
+function loadSet(snap) {
+  building = true;
+  for (const p of panes) p.el.remove();
+  panes.length = 0;
+  container.querySelectorAll('.gutter').forEach((g) => g.remove());
+  buildFromSnapshot(snap);
+  building = false;
+  save();
+  renderBookmarks();
 }
 
 // ---- copy bookmarkable link ----

@@ -103,6 +103,41 @@ body { display: flex; flex-direction: column; }
 .gp-cell.on { background: var(--accent); border-color: var(--accent-hi); }
 .gp-label { margin-top: 8px; text-align: center; color: var(--muted); font-size: 12px; }
 
+/* saved-sets bar (in-extension bookmarks) */
+.bookmarks {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #1f232b;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.bookmarks::-webkit-scrollbar { height: 6px; }
+.bookmarks::-webkit-scrollbar-thumb { background: #3a414d; border-radius: 3px; }
+.bm-label { flex: 0 0 auto; color: var(--muted); font-size: 11px; margin-right: 2px; }
+.bm-empty { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
+.bm-chip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #262b34;
+  cursor: pointer;
+  font-size: 12px;
+}
+.bm-chip:hover { background: #2f3540; }
+.bm-chip.active { border-color: var(--accent-hi); background: rgba(20, 184, 166, .16); }
+.bm-chip img { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 auto; }
+.bm-chip .bm-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.bm-chip .x { flex: 0 0 auto; opacity: .45; font-size: 11px; padding: 0 2px; }
+.bm-chip .x:hover { opacity: 1; color: #ff6b6b; }
+
 /* the grid of panes */
 .panes {
   flex: 1;

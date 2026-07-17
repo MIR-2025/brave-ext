@@ -53,6 +53,15 @@ extension's internal address (`chrome-extension://<id>/...`), which stays valid 
 long as the extension stays installed from the same folder -- moving or reinstalling
 it from a different path changes the id and breaks old bookmarks.
 
+### The saved-sets bar (no browser bookmarks involved)
+
+If you would rather not touch your browser's bookmarks at all, hit **★ Save** in the
+toolbar. The current layout gets pinned as a chip in the **bar right under the
+toolbar** -- named from the "Name this set" field (or the first pane's site), wearing
+that site's favicon. Click a chip to reload that set; the **✕** on it removes it. These
+are stored inside the extension only -- nothing is imported from or written to your
+browser bookmarks.
+
 ## The framing trick (and why it needs broad access)
 
 Most big sites send `X-Frame-Options` or a `Content-Security-Policy: frame-ancestors`
