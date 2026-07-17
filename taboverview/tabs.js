@@ -15,6 +15,8 @@ init();
 
 async function init() {
   try { const me = await chrome.tabs.getCurrent(); myTabId = me && me.id; } catch (_) { /* ignore */ }
+  // Let the worker know we're open, so a reload of the extension can reopen us.
+  try { chrome.runtime.sendMessage({ type: 'overviewAlive' }); } catch (_) { /* ignore */ }
   await reload();
   searchEl.addEventListener('input', render);
   searchEl.focus();

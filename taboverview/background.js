@@ -31,9 +31,45 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => schedule(windowId, 
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.status === 'complete' && tab && tab.active) schedule(tab.windowId, tabId);
 });
-chrome.tabs.onRemoved.addListener((tabId) => {
+chrome.tabs.onRemoved.addListener(async (tabId) => {
   chrome.storage.session.remove(THUMB + tabId).catch(() => {});
+  const ov = await getOverview();
+  if (ov && ov.tabId === tabId) { ov.alive = false; ov.ts = Date.now(); await setOverview(ov); }
 });
+
+// ---- survive extension reload / browser restart ----
+// The overview is an extension page, so reloading the extension closes it. Track
+// whether it was open and reopen it when the extension (re)loads or the browser starts.
+
+async function getOverview() {
+  try { return (await chrome.storage.local.get('overviewState')).overviewState || null; } catch (_) { return null; }
+}
+async function setOverview(s) {
+  try { await chrome.storage.local.set({ overviewState: s }); } catch (_) { /* ignore */ }
+}
+
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg && msg.type === 'overviewAlive') {
+    const tabId = sender.tab && sender.tab.id;
+    setOverview({ alive: true, ts: Date.now(), tabId: typeof tabId === 'number' ? tabId : null });
+  }
+});
+
+async function reopenOverview() {
+  const ov = await getOverview();
+  const now = Date.now();
+  const should = ov && (ov.alive || (now - (ov.ts || 0) < 15000));
+  await setOverview(null); // clear; the reopened page re-registers itself
+  if (!should) return;
+  try {
+    const tabs = await chrome.tabs.query({});
+    if (tabs.some((t) => t.url && t.url.startsWith(OVERVIEW_URL))) return; // already open / restored
+  } catch (_) { /* ignore */ }
+  try { await chrome.tabs.create({ url: OVERVIEW_URL, active: false }); } catch (_) { /* ignore */ }
+}
+
+chrome.runtime.onInstalled.addListener(reopenOverview);
+chrome.runtime.onStartup.addListener(reopenOverview);
 
 function schedule(windowId, tabId) {
   clearTimeout(timer);

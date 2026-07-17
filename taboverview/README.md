@@ -56,6 +56,13 @@ tab's **last-seen** preview. Which means:
 - Restricted pages (`brave://`, the Web Store, other extension pages, the PDF viewer)
   can't be captured, so they always show a favicon.
 
+## Surviving an extension reload
+
+The overview is an extension page, so reloading the extension (a dev iteration or an
+update) would normally close it. Instead the worker remembers that it was open and
+**reopens it automatically** when the extension reloads or the browser restarts
+(deduped against one the browser restored itself).
+
 ## Permissions
 
 - **Host access to all sites** -- required by `captureVisibleTab` (thumbnails) and by
