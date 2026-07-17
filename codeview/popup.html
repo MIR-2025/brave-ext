@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Code Viewer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="hdr">
+    <img src="icons/icon32.png" alt="" width="18" height="18">
+    <span>Code Viewer</span>
+  </header>
+
+  <div class="body">
+    <label class="row"><input type="checkbox" id="enabled" checked> <span>Highlight source files</span></label>
+    <label class="row"><input type="checkbox" id="favicon" checked> <span>Give pages a favicon</span></label>
+    <label class="row"><input type="checkbox" id="wrap"> <span>Wrap long lines by default</span></label>
+    <label class="row">
+      <span>Theme</span>
+      <select id="theme">
+        <option value="auto">Auto (match system)</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </label>
+
+    <div class="note">
+      <b>Viewing local files?</b>
+      Open <code>brave://extensions</code>, click <b>Details</b> on Code Viewer, and
+      turn on <b>Allow access to file URLs</b>.
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Code Viewer -- syntax-highlighted source files",
+  "version": "1.0.0",
+  "description": "Renders source files (local and remote) with syntax highlighting, line numbers, dark/light themes, wrap and raw toggles, and copy. Fully local.",
+  "permissions": ["storage", "clipboardWrite"],
+  "action": {
+    "default_title": "Code Viewer",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*/*.js", "*://*/*.mjs", "*://*/*.cjs", "*://*/*.jsx", "*://*/*.ts", "*://*/*.mts", "*://*/*.tsx",
+        "*://*/*.json", "*://*/*.jsonc", "*://*/*.sh", "*://*/*.bash", "*://*/*.zsh", "*://*/*.py", "*://*/*.go",
+        "*://*/*.rs", "*://*/*.rb", "*://*/*.java", "*://*/*.c", "*://*/*.h", "*://*/*.cpp", "*://*/*.hpp",
+        "*://*/*.cs", "*://*/*.php", "*://*/*.css", "*://*/*.scss", "*://*/*.less", "*://*/*.yaml", "*://*/*.yml",
+        "*://*/*.toml", "*://*/*.ini", "*://*/*.sql", "*://*/*.lua", "*://*/*.swift", "*://*/*.kt", "*://*/*.pl",
+        "*://*/*.diff", "*://*/*.patch",
+        "file:///*.js", "file:///*.mjs", "file:///*.cjs", "file:///*.jsx", "file:///*.ts", "file:///*.mts", "file:///*.tsx",
+        "file:///*.json", "file:///*.jsonc", "file:///*.sh", "file:///*.bash", "file:///*.zsh", "file:///*.py", "file:///*.go",
+        "file:///*.rs", "file:///*.rb", "file:///*.java", "file:///*.c", "file:///*.h", "file:///*.cpp", "file:///*.hpp",
+        "file:///*.cs", "file:///*.php", "file:///*.css", "file:///*.scss", "file:///*.less", "file:///*.yaml", "file:///*.yml",
+        "file:///*.toml", "file:///*.ini", "file:///*.sql", "file:///*.lua", "file:///*.swift", "file:///*.kt", "file:///*.pl",
+        "file:///*.diff", "file:///*.patch"
+      ],
+      "js": ["lib/hljs.min.js", "content.js"],
+      "css": ["code.css"],
+      "run_at": "document_end"
+    }
+  ]
+}

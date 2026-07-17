@@ -1,0 +1,113 @@
+/* Code Viewer -- scoped under body.cv so it never touches other pages. */
+
+body.cv {
+  --bg: #ffffff;
+  --fg: #1f2328;
+  --muted: #656d76;
+  --border: #d0d7de;
+  --bar: #f6f8fa;
+  --gutter-fg: #8c959f;
+  --gutter-bg: #f6f8fa;
+  /* syntax (github light) */
+  --c-comment: #6e7781;
+  --c-keyword: #cf222e;
+  --c-string: #0a3069;
+  --c-number: #0550ae;
+  --c-title: #8250df;
+  --c-built: #953800;
+  --c-attr: #0550ae;
+  --c-meta: #116329;
+  --c-var: #953800;
+
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  body.cv[data-cv-theme="auto"] {
+    --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; --border: #30363d;
+    --bar: #161b22; --gutter-fg: #6e7681; --gutter-bg: #0d1117;
+    --c-comment: #8b949e; --c-keyword: #ff7b72; --c-string: #a5d6ff; --c-number: #79c0ff;
+    --c-title: #d2a8ff; --c-built: #ffa657; --c-attr: #79c0ff; --c-meta: #7ee787; --c-var: #ffa657;
+  }
+}
+body.cv[data-cv-theme="dark"] {
+  --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; --border: #30363d;
+  --bar: #161b22; --gutter-fg: #6e7681; --gutter-bg: #0d1117;
+  --c-comment: #8b949e; --c-keyword: #ff7b72; --c-string: #a5d6ff; --c-number: #79c0ff;
+  --c-title: #d2a8ff; --c-built: #ffa657; --c-attr: #79c0ff; --c-meta: #7ee787; --c-var: #ffa657;
+}
+
+.cv-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--border);
+}
+.cv-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-lang {
+  font-size: 11px; color: var(--muted); border: 1px solid var(--border);
+  padding: 1px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: .3px;
+}
+.cv-flex { flex: 1; }
+.cv-info { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.cv-btn {
+  appearance: none; border: 1px solid var(--border); background: transparent; color: var(--fg);
+  border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+}
+.cv-btn:hover { background: var(--border); }
+
+.cv-wrap { display: flex; align-items: flex-start; }
+
+.cv-gutter, .cv-code {
+  margin: 0;
+  font: 12.5px/1.55 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  padding: 14px 0;
+}
+.cv-gutter {
+  flex: 0 0 auto;
+  padding-left: 14px;
+  padding-right: 12px;
+  text-align: right;
+  color: var(--gutter-fg);
+  background: var(--gutter-bg);
+  border-right: 1px solid var(--border);
+  user-select: none;
+  white-space: pre;
+}
+.cv-code {
+  flex: 1;
+  min-width: 0;
+  padding-left: 16px;
+  padding-right: 16px;
+  overflow-x: auto;
+  white-space: pre;
+}
+.cv-code code { font: inherit; background: none; }
+
+/* wrap mode: lines wrap, so drop the (now-misaligned) gutter */
+body.cv-wrapped .cv-gutter { display: none; }
+body.cv-wrapped .cv-code { white-space: pre-wrap; word-break: break-word; }
+
+/* highlight.js token colors, driven by the vars above */
+.hljs-comment, .hljs-quote { color: var(--c-comment); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-name, .hljs-tag { color: var(--c-keyword); }
+.hljs-string, .hljs-regexp, .hljs-symbol, .hljs-bullet, .hljs-addition { color: var(--c-string); }
+.hljs-number, .hljs-literal { color: var(--c-number); }
+.hljs-title, .hljs-section, .hljs-title.function_ { color: var(--c-title); }
+.hljs-built_in, .hljs-type, .hljs-title.class_, .hljs-class .hljs-title { color: var(--c-built); }
+.hljs-attr, .hljs-attribute, .hljs-property, .hljs-selector-attr, .hljs-selector-pseudo { color: var(--c-attr); }
+.hljs-variable, .hljs-template-variable, .hljs-selector-id, .hljs-selector-class { color: var(--c-var); }
+.hljs-meta { color: var(--c-meta); }
+.hljs-meta .hljs-keyword { color: var(--c-meta); }
+.hljs-deletion { color: var(--c-keyword); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }
+.hljs-link { text-decoration: underline; }

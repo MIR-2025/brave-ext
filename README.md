@@ -16,6 +16,7 @@ telemetry. Everything runs locally in your browser and nothing is sent anywhere.
 | [`markdownview/`](markdownview/) | **Renders `.md` files** (local and remote) as clean pages -- reading layout, dark/light themes, table of contents, raw toggle, and a favicon per file. |
 | [`sitefavicons/`](sitefavicons/) | **Custom favicon for any site** -- an emoji, an image, a URL, or a colored letter. For sites with a blank or generic icon. |
 | [`devdash/`](devdash/) | **Dev Dashboard** -- a popup listing your localhost servers and deployed sites with a live up/down check and one-click open. |
+| [`codeview/`](codeview/) | **Code Viewer** -- renders source files (local and remote) with syntax highlighting, line numbers, themes, wrap/raw toggles, and copy. |
 
 ## Install (load unpacked)
 
@@ -42,7 +43,8 @@ none of these need. Skipping it also keeps the code fully in your hands.
 ## Design principles
 
 - **Manifest V3**, no build step, no bundler, and nothing fetched at runtime. The
-  only third-party library is `marked`, vendored locally inside `markdownview/`.
+  only third-party libraries are `marked` (in `markdownview/`) and `highlight.js`
+  (in `codeview/`), each vendored locally.
 - **Local only** -- no network calls, no analytics, no accounts.
 - **Least privilege** -- each extension asks for the narrowest permissions that
   make it work, and each README explains every permission it requests.
