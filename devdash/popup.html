@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Dev Dashboard</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="hdr">
+    <img src="icons/icon32.png" alt="" width="18" height="18">
+    <span>Dev Dashboard</span>
+    <span class="flex"></span>
+    <button id="refresh" class="iconbtn" title="Re-check all">↻</button>
+    <button id="add" class="iconbtn" title="Add an entry">+</button>
+  </header>
+
+  <div id="form" class="form" hidden>
+    <input id="f-name" class="fin" type="text" spellcheck="false" placeholder="Name (e.g. Notes)">
+    <input id="f-url" class="fin" type="text" spellcheck="false" placeholder="localhost:3000  or  example.com">
+    <div class="grouprow">
+      <label><input type="radio" name="grp" value="local" checked> Local</label>
+      <label><input type="radio" name="grp" value="deployed"> Deployed</label>
+    </div>
+    <div class="formbtns">
+      <button id="f-save" class="btn primary" type="button">Save</button>
+      <button id="f-cancel" class="btn ghost" type="button">Cancel</button>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="sec-title">Local</div>
+    <div id="list-local" class="list"></div>
+  </section>
+
+  <section class="section">
+    <div class="sec-title">Deployed</div>
+    <div id="list-deployed" class="list"></div>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

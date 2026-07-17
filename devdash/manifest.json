@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Dev Dashboard -- localhost & deployed status",
+  "version": "1.0.0",
+  "description": "A popup listing your dev servers and deployed sites with a live up/down check and one-click open. Pre-seeded and editable. Fully local.",
+  "permissions": ["storage"],
+  "host_permissions": ["*://*/*"],
+  "action": {
+    "default_title": "Dev Dashboard",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
