@@ -30,6 +30,11 @@ Pin it, then click the icon to open a split tab.
   2x2, 2x4, 4x4, 3x3, anything up to 6x6. A single row is side-by-side; a single
   column is stacked.
 - **Drag any gutter** between columns or rows to resize.
+- **Reposition a pane**: grab the **⠿** handle on a pane's bar and drag it onto
+  another pane -- the two swap places. The cells keep their sizes; only the
+  contents move, so you can rearrange a layout without rebuilding it. Since the
+  first pane supplies the tab's icon and title, swapping something into slot one
+  re-badges the tab.
 - **+ Pane** adds one more (the grid grows to fit). The **✕** on a pane removes it
   (the last one just clears instead).
 - Per pane: **↻** reload, **↗** open that page in a normal new tab.

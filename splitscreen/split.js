@@ -84,6 +84,7 @@ function createPaneObj() {
   el.className = 'pane';
   el.innerHTML =
     '<div class="pane-bar">' +
+      '<button class="icon grip" title="Drag to move this pane">⠿</button>' +
       '<button class="icon reload" title="Reload">↻</button>' +
       '<input class="url" type="text" spellcheck="false" placeholder="Enter a URL or search, then press Enter">' +
       '<button class="icon tabs" title="Choose an open tab">☰</button>' +
@@ -121,6 +122,7 @@ function createPaneObj() {
   pane.urlInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') navigate(pane, pane.urlInput.value);
   });
+  wireReorder(pane, el);
 
   container.appendChild(el);
   panes.push(pane);
@@ -170,6 +172,72 @@ function fillFirstEmpty(url) {
 }
 
 // ---- grid layout ----
+
+// ---- drag a pane to reposition it in the grid ----
+// panes[] is row-major and placePanes() maps index -> cell, so moving a pane is
+// just swapping two array entries. Dragging is anchored to the grip handle so the
+// URL field still selects text normally.
+let dragSrc = null;
+
+// Pointer-based rather than HTML5 drag-and-drop: native DnD is unreliable across
+// iframes, and this matches how the resize gutters already work.
+function wireReorder(pane, el) {
+  const grip = el.querySelector('.grip');
+  grip.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    beginReorder(pane, el);
+  });
+}
+
+function beginReorder(pane, el) {
+  dragSrc = pane;
+  // Shield the iframes: with pointer-events live, elementFromPoint returns the
+  // frame instead of the pane and you can never land on a pane showing a page.
+  container.classList.add('reordering');
+  el.classList.add('drag-source');
+  let target = null;
+
+  const move = (ev) => {
+    const under = document.elementFromPoint(ev.clientX, ev.clientY);
+    const hit = under && under.closest ? under.closest('.pane') : null;
+    const next = (hit && hit.__pane && hit.__pane !== pane) ? hit : null;
+    if (next === target) return;
+    if (target) target.classList.remove('drop-target');
+    target = next;
+    if (target) target.classList.add('drop-target');
+  };
+
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+    if (target && target.__pane) swapPanes(pane, target.__pane);
+    endReorder();
+  };
+
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+}
+
+function endReorder() {
+  dragSrc = null;
+  container.classList.remove('reordering');
+  container.querySelectorAll('.pane').forEach((p) => {
+    p.classList.remove('drop-target', 'drag-source');
+  });
+}
+
+function swapPanes(a, b) {
+  const i = panes.indexOf(a);
+  const j = panes.indexOf(b);
+  if (i === -1 || j === -1 || i === j) return;
+  panes[i] = b;
+  panes[j] = a;
+  placePanes();
+  save();   // persists the new order; also refreshes the tab's icon + title
+}
 
 function applyGrid(newCols, targetPanes) {
   cols = Math.max(1, Math.min(MAX_TRACKS, newCols));
@@ -414,14 +482,93 @@ function normalizeUrl(raw) {
 
 // ---- the tab's identity: favicon (first pane) + title ----
 
+// Local dev servers are all "localhost" and almost never serve a favicon, so
+// Chrome's favicon cache hands back the same blank globe for every one of them.
+// For those we synthesize an icon instead: a colour derived from host:port, with
+// the port number stamped on it -- so :26717 and :3000 are told apart at a glance.
+const LOCAL_HOST_RE = /^(localhost|127(?:\.\d+){3}|\[?::1\]?|0\.0\.0\.0)$/i;
+
+function isLocalUrl(pageUrl) {
+  try {
+    const h = new URL(pageUrl).hostname;
+    return LOCAL_HOST_RE.test(h) || /^192\.168\./.test(h) || /^10\./.test(h) ||
+           /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+  } catch (_) { return false; }
+}
+
+const portIconCache = new Map();
+
+// FNV-1a + murmur3 finalizer. A plain `h*31 + char` hash is useless here: keys
+// that differ only in the last character (localhost:3000 vs :3001) land on
+// adjacent hues and render as the same colour. The avalanche step scatters them.
+function hashKey(key) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  h ^= h >>> 16; h = Math.imul(h, 2246822507) >>> 0;
+  h ^= h >>> 13; h = Math.imul(h, 3266489909) >>> 0;
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+function portIcon(port, key) {
+  if (portIconCache.has(key)) return portIconCache.get(key);
+  // deterministic hue from the full host:port, so a port keeps its colour forever
+  const h = hashKey(key);
+  const hue = h % 360;
+
+  const S = 64;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d');
+
+  // second axis: two unrelated ports that happen to land on a close hue still
+  // differ in lightness, so they don't read as the same badge
+  const light = 38 + ((h >>> 16) % 15);
+  const r = 13;                                  // rounded-square badge
+  g.fillStyle = `hsl(${hue}, 62%, ${light}%)`;
+  g.beginPath();
+  g.moveTo(r, 0);
+  g.arcTo(S, 0, S, S, r); g.arcTo(S, S, 0, S, r);
+  g.arcTo(0, S, 0, 0, r); g.arcTo(0, 0, S, 0, r);
+  g.closePath(); g.fill();
+
+  const label = String(port);
+  g.fillStyle = '#fff';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  const size = label.length >= 5 ? 21 : label.length === 4 ? 26 : 32;
+  g.font = `bold ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+  g.fillText(label, S / 2, S / 2 + 1);
+
+  const url = c.toDataURL('image/png');
+  portIconCache.set(key, url);
+  return url;
+}
+
 function faviconHref(pageUrl) {
+  if (isLocalUrl(pageUrl)) {
+    try {
+      const u = new URL(pageUrl);
+      const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+      return portIcon(port, u.hostname + ':' + port);
+    } catch (_) { /* fall through to the favicon cache */ }
+  }
   const u = new URL(chrome.runtime.getURL('/_favicon/'));
   u.searchParams.set('pageUrl', pageUrl);
   u.searchParams.set('size', '32');
   return u.toString();
 }
+
+// Keep the port in the label -- otherwise every dev server reads "localhost".
 function domainOf(u) {
-  try { return new URL(u).hostname.replace(/^www\./, ''); } catch (_) { return ''; }
+  try {
+    const url = new URL(u);
+    const host = url.hostname.replace(/^www\./, '');
+    return url.port ? host + ':' + url.port : host;
+  } catch (_) { return ''; }
 }
 function updateIdentity() {
   const first = panes.find((p) => p.url);

@@ -289,3 +289,15 @@ body.dragging { user-select: none; }
 body.dragging iframe { pointer-events: none; }
 body.dragging.col-resize { cursor: col-resize; }
 body.dragging.row-resize { cursor: row-resize; }
+
+/* ---- drag a pane to reposition it ---- */
+.icon.grip { cursor: grab; letter-spacing: -1px; }
+.icon.grip:active { cursor: grabbing; }
+
+/* While a pane is being dragged, stop the iframes from eating dragover/drop --
+   otherwise a pane with a page loaded can never be used as a drop target. */
+.panes.reordering iframe { pointer-events: none; }
+
+.pane.drag-source { opacity: .5; }
+.pane.drop-target { outline: 2px solid var(--accent, #4c8bf5); outline-offset: -2px; }
+.pane.drop-target .pane-bar { background: #2b3a55; }
