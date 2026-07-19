@@ -101,14 +101,31 @@ function wire() {
   removeBtn.addEventListener('click', onRemove);
 }
 
-function openEditorWindow() {
-  // Do NOT call chrome.windows.create here. Creating a window pulls focus, which
-  // destroys this popup and cancels the in-flight call -- the window never opens
-  // and it just looks like the dialog closed for no reason. The service worker
-  // isn't tied to popup focus, so ask it to open the window instead.
-  try { chrome.runtime.sendMessage({ type: 'openEditor', host, tabId: activeTabId }); }
-  catch (e) { console.error('[Site Favicons]', e); }
-  window.close();
+async function openEditorWindow() {
+  // Two rules here, both learned the hard way:
+  //
+  // 1. Don't call chrome.windows.create() from the popup. Creating a window pulls
+  //    focus, which destroys this popup and cancels the in-flight call, so no
+  //    window ever opens. The service worker isn't tied to popup focus -- ask it.
+  //
+  // 2. Don't close this popup until the worker has ANSWERED. sendMessage is async;
+  //    calling window.close() on the next line can tear down this context before
+  //    the message is even dispatched, which loses it just as thoroughly. Awaiting
+  //    the reply proves the worker received it and the window exists.
+  openEditorBtn.disabled = true;
+  let res = null;
+  try {
+    res = await chrome.runtime.sendMessage({ type: 'openEditor', host, tabId: activeTabId });
+  } catch (e) {
+    console.error('[Site Favicons]', e);
+  }
+  if (res && res.ok) {
+    window.close();
+    return;
+  }
+  // Never vanish silently -- say what happened and leave the popup up.
+  openEditorBtn.disabled = false;
+  flash(openEditorBtn, 'Could not open editor');
 }
 
 // Decode whatever was uploaded (webp / avif / svg / gif / png / jpg) and re-encode

@@ -66,15 +66,23 @@ async function removeFor(tabId, host) {
 // an action popup, because opening the OS dialog closes the popup.
 async function openEditor(tab, host) {
   const tabId = tab && tab.id;
+  const url = chrome.runtime.getURL('popup.html') + '?editor=1&host=' + encodeURIComponent(host) +
+              (tabId ? '&tabId=' + tabId : '');
   try {
-    await chrome.windows.create({
-      url: chrome.runtime.getURL('popup.html') + '?editor=1&host=' + encodeURIComponent(host) +
-           (tabId ? '&tabId=' + tabId : ''),
-      type: 'popup',
-      width: 390,
-      height: 700
-    });
-  } catch (e) { console.error('[Site Favicons]', e); }
+    await chrome.windows.create({ url, type: 'popup', width: 390, height: 700 });
+    return true;
+  } catch (e) {
+    console.error('[Site Favicons] windows.create failed', e);
+  }
+  // Fallback: a normal tab always works, and a file picker is fine from a tab.
+  // Better to land somewhere than to leave the user staring at nothing.
+  try {
+    await chrome.tabs.create({ url });
+    return true;
+  } catch (e) {
+    console.error('[Site Favicons] tabs.create failed', e);
+    return false;
+  }
 }
 
 // ---- work requested by the popup ------------------------------------------
@@ -89,8 +97,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (!msg || !msg.type) return sendResponse({ ok: false });
 
       if (msg.type === 'openEditor') {
-        await openEditor({ id: msg.tabId }, msg.host);
-        return sendResponse({ ok: true });
+        const ok = await openEditor({ id: msg.tabId }, msg.host);
+        return sendResponse({ ok });   // report the truth so the popup can say so
       }
 
       if (msg.type === 'save') {
