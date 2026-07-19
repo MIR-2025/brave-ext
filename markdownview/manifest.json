@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MarkdownView -- render .md in the browser",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Renders Markdown files (local and remote) as clean, styled pages with a reading layout, dark/light themes, a table of contents, and a raw toggle. Local only.",
   "permissions": ["storage"],
   "action": {
@@ -28,7 +28,8 @@
       ],
       "js": ["lib/marked.umd.js", "content.js"],
       "css": ["markdown.css"],
-      "run_at": "document_end"
+      "run_at": "document_end",
+      "all_frames": true
     }
   ]
 }

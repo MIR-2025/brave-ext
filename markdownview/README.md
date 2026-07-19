@@ -72,3 +72,10 @@ vendored unmodified. Its license is in `lib/marked.LICENSE`.
 - **`storage`** -- remembers the on/off switch and theme. That's the only permission;
   page access comes from the content-script match patterns (markdown URLs only), and
   local-file access is the manual "Allow access to file URLs" toggle you control.
+
+## Inside frames (Split Screen panes)
+
+The content script runs in **sub-frames**, not just the top-level page, so a
+markdown file opened inside an iframe renders too -- notably a pane of the Split
+Screen extension. (Chrome's default is top-frame-only, which is why this needs
+`all_frames` set explicitly.)
