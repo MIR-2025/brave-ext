@@ -301,3 +301,17 @@ body.dragging.row-resize { cursor: row-resize; }
 .pane.drag-source { opacity: .5; }
 .pane.drop-target { outline: 2px solid var(--accent, #4c8bf5); outline-offset: -2px; }
 .pane.drop-target .pane-bar { background: #2b3a55; }
+
+/* ---- per-set tab icon ---- */
+.icon-input {
+  width: 46px;
+  text-align: center;
+  font-size: 15px;
+  padding: 5px 4px;
+  margin-right: 6px;
+  background: #23272f;
+  color: #e7ebf1;
+  border: 1px solid #333a45;
+  border-radius: 8px;
+}
+.icon-input:focus { outline: none; border-color: var(--accent); }

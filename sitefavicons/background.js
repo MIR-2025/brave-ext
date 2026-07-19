@@ -68,19 +68,23 @@ async function openEditor(tab, host) {
   const tabId = tab && tab.id;
   const url = chrome.runtime.getURL('popup.html') + '?editor=1&host=' + encodeURIComponent(host) +
               (tabId ? '&tabId=' + tabId : '');
+  // Open as a TAB in the current window, not a popup window. A detached popup
+  // window is positioned by the browser, and on a multi-monitor desktop it can
+  // land on another screen or behind the browser -- so it looks like "the dialog
+  // just vanished and nothing happened" even though the window was created fine.
+  // A tab appears where the user is already looking, and a file picker works from
+  // a tab just as well.
   try {
-    await chrome.windows.create({ url, type: 'popup', width: 390, height: 700 });
-    return true;
-  } catch (e) {
-    console.error('[Site Favicons] windows.create failed', e);
-  }
-  // Fallback: a normal tab always works, and a file picker is fine from a tab.
-  // Better to land somewhere than to leave the user staring at nothing.
-  try {
-    await chrome.tabs.create({ url });
+    await chrome.tabs.create({ url, active: true });
     return true;
   } catch (e) {
     console.error('[Site Favicons] tabs.create failed', e);
+  }
+  try {
+    await chrome.windows.create({ url, type: 'popup', width: 390, height: 700, focused: true });
+    return true;
+  } catch (e) {
+    console.error('[Site Favicons] windows.create failed', e);
     return false;
   }
 }

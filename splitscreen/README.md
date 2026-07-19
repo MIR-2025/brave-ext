@@ -35,6 +35,11 @@ Pin it, then click the icon to open a split tab.
   contents move, so you can rearrange a layout without rebuilding it. Since the
   first pane supplies the tab's icon and title, swapping something into slot one
   re-badges the tab.
+- **Give the set its own icon**: type or paste an emoji into the small box next to
+  the set name. That becomes the tab's favicon, overriding the one inherited from
+  the first pane, and it's saved with the set (and in the bookmarkable link). Handy
+  because a split tab is an extension page -- Site Favicons and other favicon tools
+  physically cannot touch it, so the icon has to come from here.
 - **+ Pane** adds one more (the grid grows to fit). The **✕** on a pane removes it
   (the last one just clears instead).
 - Per pane: **↻** reload, **↗** open that page in a normal new tab.

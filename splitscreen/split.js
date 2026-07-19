@@ -10,6 +10,7 @@ const gridBtn = document.getElementById('gridBtn');
 const gridLabel = document.getElementById('gridLabel');
 const gridPicker = document.getElementById('gridPicker');
 const nameInput = document.getElementById('setName');
+const iconInput = document.getElementById('setIcon');
 const copyBtn = document.getElementById('copyLink');
 const saveBtn = document.getElementById('saveSet');
 const bookmarksEl = document.getElementById('bookmarks');
@@ -25,6 +26,7 @@ let cols = 2;            // number of columns; rows derive from panes.length
 let colSizes = [1, 1];   // fr weight per column
 let rowSizes = [1];      // fr weight per row
 let setName = '';
+let setIcon = '';   // optional per-set tab icon (emoji)
 let building = false;    // suppress persistence while bulk-building
 
 function rowCount() { return Math.max(1, Math.ceil(panes.length / cols)); }
@@ -48,6 +50,7 @@ addBtn.addEventListener('click', () => {
 });
 gridBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleGridPicker(); });
 nameInput.addEventListener('input', () => { setName = nameInput.value; save(); });
+iconInput.addEventListener('input', () => { setIcon = iconInput.value.trim(); save(); });
 copyBtn.addEventListener('click', onCopyLink);
 saveBtn.addEventListener('click', saveCurrentSet);
 
@@ -570,9 +573,32 @@ function domainOf(u) {
     return url.port ? host + ':' + url.port : host;
   } catch (_) { return ''; }
 }
+const glyphCache = new Map();
+
+// Render a chosen emoji to a real PNG. Setting <link rel=icon> straight to an
+// emoji character doesn't work -- it has to be an image.
+function glyphIcon(glyph) {
+  if (glyphCache.has(glyph)) return glyphCache.get(glyph);
+  const S = 64;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d');
+  const chars = Array.from(glyph).length;
+  g.font = (chars > 1 ? 32 : 52) +
+    'px "Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",system-ui,sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(glyph, S / 2, S / 2 + 4);
+  const url = c.toDataURL('image/png');
+  glyphCache.set(glyph, url);
+  return url;
+}
+
 function updateIdentity() {
   const first = panes.find((p) => p.url);
-  favicon.href = first ? faviconHref(first.url) : 'icons/icon32.png';
+  // An explicit per-set icon wins over the first pane's favicon.
+  favicon.href = setIcon ? glyphIcon(setIcon)
+    : (first ? faviconHref(first.url) : 'icons/icon32.png');
 
   const domains = [...new Set(panes.map((p) => p.url).filter(Boolean).map(domainOf).filter(Boolean))];
   document.title = setName || (domains.length ? domains.slice(0, 3).join(' | ') : 'Split Screen');
@@ -586,6 +612,7 @@ function snapshot() {
     cs: colSizes.map((x) => Math.round(x * 1000) / 1000),
     rs: rowSizes.map((x) => Math.round(x * 1000) / 1000),
     n: setName,
+    i: setIcon,
     u: panes.map((p) => p.url || '')
   };
 }
@@ -630,6 +657,8 @@ function buildFromSnapshot(snap, firstOverride) {
   cols = Math.max(1, Math.min(MAX_TRACKS, snap.c || 2));
   setName = snap.n || '';
   nameInput.value = setName;
+  setIcon = snap.i || '';
+  iconInput.value = setIcon;
   const urls = Array.isArray(snap.u) ? snap.u : [];
   const count = Math.max(1, urls.length);
   for (let i = 0; i < count; i++) createPaneObj();
