@@ -65,14 +65,75 @@ async function removeFor(tabId, host) {
 // Always a real window (never the action popup): a file picker can't be used from
 // an action popup, because opening the OS dialog closes the popup.
 async function openEditor(tab, host) {
+  const tabId = tab && tab.id;
   try {
     await chrome.windows.create({
-      url: chrome.runtime.getURL('popup.html') + '?editor=1&host=' + encodeURIComponent(host) + '&tabId=' + tab.id,
+      url: chrome.runtime.getURL('popup.html') + '?editor=1&host=' + encodeURIComponent(host) +
+           (tabId ? '&tabId=' + tabId : ''),
       type: 'popup',
       width: 390,
       height: 700
     });
   } catch (e) { console.error('[Site Favicons]', e); }
+}
+
+// ---- work requested by the popup ------------------------------------------
+// The action popup is destroyed the instant it loses focus, and that kills any
+// async work it had in flight -- chrome.windows.create never opens the window,
+// a storage write never lands. (Same reason a file picker can't be used from it.)
+// So the popup asks the service worker to do these instead: the worker isn't tied
+// to popup focus, so the work actually completes even as the popup disappears.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  (async () => {
+    try {
+      if (!msg || !msg.type) return sendResponse({ ok: false });
+
+      if (msg.type === 'openEditor') {
+        await openEditor({ id: msg.tabId }, msg.host);
+        return sendResponse({ ok: true });
+      }
+
+      if (msg.type === 'save') {
+        const map = (await chrome.storage.local.get('faviconMap')).faviconMap || {};
+        map[msg.host] = msg.href;
+        await chrome.storage.local.set({ faviconMap: map });
+        let applied = false;
+        if (msg.tabId) {
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId: msg.tabId }, func: applyHrefInPage, args: [msg.href]
+            });
+            applied = true;
+          } catch (_) { /* tab gone or not scriptable */ }
+        }
+        return sendResponse({ ok: true, applied });
+      }
+
+      if (msg.type === 'remove') {
+        const map = (await chrome.storage.local.get('faviconMap')).faviconMap || {};
+        delete map[msg.host];
+        await chrome.storage.local.set({ faviconMap: map });
+        if (msg.tabId) { try { await chrome.tabs.reload(msg.tabId); } catch (_) { /* ignore */ } }
+        return sendResponse({ ok: true });
+      }
+
+      sendResponse({ ok: false });
+    } catch (e) {
+      console.error('[Site Favicons]', e);
+      sendResponse({ ok: false, error: String(e) });
+    }
+  })();
+  return true;   // async response -- keep the message channel open
+});
+
+// Injected: swap the page's icon link for ours.
+function applyHrefInPage(href) {
+  document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
+    .forEach((n) => n.remove());
+  const link = document.createElement('link');
+  link.rel = 'icon';
+  link.href = href;
+  (document.head || document.documentElement).appendChild(link);
 }
 
 // Injected into the page: draw the icon, apply it, and return the data URL so we

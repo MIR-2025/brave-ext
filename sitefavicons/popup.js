@@ -101,10 +101,13 @@ function wire() {
   removeBtn.addEventListener('click', onRemove);
 }
 
-async function openEditorWindow() {
-  const url = chrome.runtime.getURL('popup.html') +
-    '?editor=1&host=' + encodeURIComponent(host) + (activeTabId ? '&tabId=' + activeTabId : '');
-  try { await chrome.windows.create({ url, type: 'popup', width: 390, height: 700 }); } catch (e) { console.error(e); }
+function openEditorWindow() {
+  // Do NOT call chrome.windows.create here. Creating a window pulls focus, which
+  // destroys this popup and cancels the in-flight call -- the window never opens
+  // and it just looks like the dialog closed for no reason. The service worker
+  // isn't tied to popup focus, so ask it to open the window instead.
+  try { chrome.runtime.sendMessage({ type: 'openEditor', host, tabId: activeTabId }); }
+  catch (e) { console.error('[Site Favicons]', e); }
   window.close();
 }
 
@@ -154,47 +157,31 @@ async function renderExisting() {
 
 async function onSave() {
   if (!host || !pending) return;
-  const map = await getMap();
-  map[host] = pending;
-  await chrome.storage.local.set({ faviconMap: map });
+  // Hand the write to the service worker: if this popup is closed mid-save (a
+  // stray click, the OS stealing focus) an await here would be abandoned and the
+  // favicon would apply live but never persist -- looking exactly like "it doesn't
+  // survive a restart". The worker finishes regardless.
+  let res = null;
+  try {
+    res = await chrome.runtime.sendMessage({ type: 'save', host, href: pending, tabId: activeTabId });
+  } catch (e) { console.error('[Site Favicons]', e); }
   removeBtn.hidden = false;
   await renderList();
-
-  // Apply right now. We can't rely on the content script being present: content
-  // scripts are not injected into tabs that were already open when the extension
-  // was installed/reloaded, so inject the swap directly.
-  let applied = false;
-  if (activeTabId) {
-    try {
-      await chrome.scripting.executeScript({ target: { tabId: activeTabId }, func: applyHrefInPage, args: [pending] });
-      applied = true;
-    } catch (e) { console.error('[Site Favicons]', e); }
-  }
-  flash(saveBtn, applied ? 'Saved ✓' : 'Saved (reload page)');
+  if (!res || !res.ok) flash(saveBtn, 'Save failed');
+  else flash(saveBtn, res.applied ? 'Saved ✓' : 'Saved (reload page)');
 }
 
-// Injected: swap the page's icon link for ours.
-function applyHrefInPage(href) {
-  document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach((n) => n.remove());
-  const link = document.createElement('link');
-  link.rel = 'icon';
-  link.href = href;
-  (document.head || document.documentElement).appendChild(link);
-}
 
 async function onRemove() {
-  const map = await getMap();
-  delete map[host];
-  await chrome.storage.local.set({ faviconMap: map });
+  try { await chrome.runtime.sendMessage({ type: 'remove', host, tabId: activeTabId }); }
+  catch (e) { console.error('[Site Favicons]', e); }
   removeBtn.hidden = true;
   await renderList();
-  if (activeTabId) { try { await chrome.tabs.reload(activeTabId); } catch (_) { /* ignore */ } }
 }
 
 async function removeHost(h) {
-  const map = await getMap();
-  delete map[h];
-  await chrome.storage.local.set({ faviconMap: map });
+  try { await chrome.runtime.sendMessage({ type: 'remove', host: h, tabId: (h === host ? activeTabId : null) }); }
+  catch (e) { console.error('[Site Favicons]', e); }
   if (h === host) removeBtn.hidden = true;
   await renderList();
 }
