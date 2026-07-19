@@ -551,18 +551,68 @@ function portIcon(port, key) {
   return url;
 }
 
+function faviconApi(pageUrl, size) {
+  const u = new URL(chrome.runtime.getURL('/_favicon/'));
+  u.searchParams.set('pageUrl', pageUrl);
+  u.searchParams.set('size', String(size || 32));
+  return u.toString();
+}
+
+// Chrome's favicon service always returns SOMETHING -- a generic globe when it has
+// no icon for that page -- so you can't tell "real icon" from "nothing" by whether
+// the image loads. Fingerprint the generic one once (ask for an address that can
+// never exist), then compare. That way a dev server that DOES serve a favicon keeps
+// its own icon, and the generated port badge is only used when there truly isn't one.
+let defaultSigPromise = null;
+const realIconCache = new Map();   // pageUrl -> true (real icon) | false (generic)
+
+function iconSignature(src) {
+  return new Promise((resolve) => {
+    const im = new Image();
+    im.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = c.height = 16;
+        const g = c.getContext('2d');
+        g.drawImage(im, 0, 0, 16, 16);
+        resolve(c.toDataURL('image/png'));
+      } catch (_) { resolve(null); }
+    };
+    im.onerror = () => resolve(null);
+    im.src = src;
+  });
+}
+
+function defaultIconSig() {
+  if (!defaultSigPromise) {
+    defaultSigPromise = iconSignature(faviconApi('http://no-such-host.invalid/', 32));
+  }
+  return defaultSigPromise;
+}
+
+async function hasRealFavicon(pageUrl) {
+  if (realIconCache.has(pageUrl)) return realIconCache.get(pageUrl);
+  const [sig, def] = await Promise.all([iconSignature(faviconApi(pageUrl, 32)), defaultIconSig()]);
+  const real = !!sig && sig !== def;
+  realIconCache.set(pageUrl, real);
+  return real;
+}
+
 function faviconHref(pageUrl) {
   if (isLocalUrl(pageUrl)) {
+    // Real favicon wins whenever the browser has one -- localhost or not.
+    if (realIconCache.get(pageUrl) === true) return faviconApi(pageUrl, 32);
+    if (!realIconCache.has(pageUrl)) {
+      // Probe once; if it turns out to have a real icon, re-badge the tab.
+      hasRealFavicon(pageUrl).then((real) => { if (real) updateIdentity(); });
+    }
     try {
       const u = new URL(pageUrl);
       const port = u.port || (u.protocol === 'https:' ? '443' : '80');
-      return portIcon(port, u.hostname + ':' + port);
-    } catch (_) { /* fall through to the favicon cache */ }
+      return portIcon(port, u.hostname + ':' + port);   // fallback: no icon served
+    } catch (_) { /* fall through */ }
   }
-  const u = new URL(chrome.runtime.getURL('/_favicon/'));
-  u.searchParams.set('pageUrl', pageUrl);
-  u.searchParams.set('size', '32');
-  return u.toString();
+  return faviconApi(pageUrl, 32);
 }
 
 // Keep the port in the label -- otherwise every dev server reads "localhost".

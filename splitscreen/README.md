@@ -56,7 +56,10 @@ you see**. To save a set:
 - Give it a **name** in the toolbar field -- that becomes the bookmark's title.
 - The tab **inherits the first pane's favicon**, so each saved set looks like its
   primary site in your bookmarks bar. (An empty first pane falls back to the Split
-  Screen icon.)
+  Screen icon.) This includes **localhost** -- if your dev server serves a favicon,
+  that is what you get. Only when a site genuinely has no icon (many dev servers
+  don't) does the tab fall back to a generated badge coloured per `host:port` with
+  the port stamped on it, so `:3000` and `:26717` stay tellable apart.
 
 Opening a bookmarked set rebuilds it exactly. Note: the bookmark points at this
 extension's internal address (`chrome-extension://<id>/...`), which stays valid as
