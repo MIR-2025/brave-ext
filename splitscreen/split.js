@@ -22,6 +22,7 @@ const MAX_TRACKS = 6;
 const MIN_SIZE = 80;
 
 const panes = [];        // arbitrary length, row-major
+let paneSeq = 0;         // names each pane's iframe so it can report its URL back
 let cols = 2;            // number of columns; rows derive from panes.length
 let colSizes = [1, 1];   // fr weight per column
 let rowSizes = [1];      // fr weight per row
@@ -102,6 +103,11 @@ function createPaneObj() {
         '<div class="tablist"></div>' +
       '</div></div>' +
     '</div>';
+
+  // Name the frame: window.name survives navigation inside it, so the pane
+  // stays identifiable however deep the user clicks (see panewatch.js).
+  const ifr = el.querySelector('iframe');
+  ifr.name = 'splitpane:' + (++paneSeq);
 
   const menu = el.querySelector('.tab-menu');
   const pane = {
@@ -643,6 +649,25 @@ function glyphIcon(glyph) {
   glyphCache.set(glyph, url);
   return url;
 }
+
+// ---- keep each pane's address bar in step with in-frame navigation ----
+// A cross-origin frame won't expose its location, so the pane tells us (panewatch.js).
+// Only believe it if the message really came from one of our panes' windows --
+// comparing window identity is allowed cross-origin, reading their URL is not.
+let urlSaveTimer = null;
+window.addEventListener('message', (e) => {
+  const d = e.data;
+  if (!d || typeof d.__splitPaneUrl !== 'string') return;
+  const pane = panes.find((p) => p.iframe && p.iframe.contentWindow === e.source);
+  if (!pane) return;
+  const href = d.__splitPaneUrl;
+  if (!href || href === 'about:blank' || href === pane.url) return;
+  pane.url = href;
+  // don't fight the user if they're mid-edit in that box
+  if (document.activeElement !== pane.urlInput) pane.urlInput.value = href;
+  clearTimeout(urlSaveTimer);
+  urlSaveTimer = setTimeout(() => save(), 500);   // persists state + bookmarkable link
+});
 
 function updateIdentity() {
   const first = panes.find((p) => p.url);

@@ -103,6 +103,11 @@ browser restored on its own. So a reload brings your split views right back.
   the occasional site will still refuse. Use **↗** to open it in a normal tab.
 - **Login state** works normally (the frame keeps the site's own cookies), so you
   can view logged-in pages side by side.
-- **In-frame clicks** (following links inside a page) do not update the pane's URL
-  bar, because the browser does not expose a cross-origin frame's current URL to us.
+- **In-frame clicks now update the pane's URL bar.** Follow links inside a pane and
+  its address field keeps up, so ★ Save and the bookmarkable link capture where you
+  actually ended up rather than where you started. The browser won't let the parent
+  page read a cross-origin frame's location, so the pane reports its own: Split Screen
+  names each iframe, and `window.name` survives navigation inside that frame, so the
+  page still knows which pane it is however deep you click. A pane can only speak for
+  itself -- the report is accepted only when it comes from that pane's own window.
 - `brave://` and other browser pages cannot be framed -- that is a browser rule.
