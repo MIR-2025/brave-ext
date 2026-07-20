@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
   "name": "MarkdownView -- render .md in the browser",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Renders Markdown files (local and remote) as clean, styled pages with a reading layout, dark/light themes, a table of contents, and a raw toggle. Local only.",
-  "permissions": ["storage"],
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "scripting",
+    "storage"
+  ],
   "action": {
     "default_title": "MarkdownView",
     "default_popup": "popup.html",
@@ -23,13 +28,31 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*/*.md", "*://*/*.markdown", "*://*/*.mdown", "*://*/*.mkd", "*://*/*.mdwn", "*://*/*.mkdn",
-        "file:///*.md", "file:///*.markdown", "file:///*.mdown", "file:///*.mkd", "file:///*.mdwn", "file:///*.mkdn"
+        "*://*/*.md",
+        "*://*/*.markdown",
+        "*://*/*.mdown",
+        "*://*/*.mkd",
+        "*://*/*.mdwn",
+        "*://*/*.mkdn",
+        "file:///*.md",
+        "file:///*.markdown",
+        "file:///*.mdown",
+        "file:///*.mkd",
+        "file:///*.mdwn",
+        "file:///*.mkdn"
       ],
-      "js": ["lib/marked.umd.js", "content.js"],
-      "css": ["markdown.css"],
+      "js": [
+        "lib/marked.umd.js",
+        "content.js"
+      ],
+      "css": [
+        "markdown.css"
+      ],
       "run_at": "document_end",
       "all_frames": true
     }
-  ]
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
 }

@@ -8,6 +8,12 @@
   const ct = (document.contentType || '').toLowerCase();
   const looksMd = TEXT_TYPES.indexOf(ct) !== -1;
 
+  // Set by the right-click menu (see background.js): render regardless of what the
+  // URL or content-type says, optionally over just the selected text.
+  const forced = !!window.__mdvForce;
+  const forcedRaw = (typeof window.__mdvRaw === 'string' && window.__mdvRaw) ? window.__mdvRaw : null;
+  if (window.__mdvDone) return;                       // already rendered here
+
   // Hide the raw text immediately to avoid a flash, revealed after we render (or bail).
   if (looksMd) { try { document.documentElement.style.visibility = 'hidden'; } catch (_) { /* ignore */ } }
   const reveal = () => { try { document.documentElement.style.visibility = ''; } catch (_) { /* ignore */ } };
@@ -20,12 +26,15 @@
     if (typeof s.mdvFavicon === 'boolean') cfg.mdvFavicon = s.mdvFavicon;
   } catch (_) { /* ignore */ }
 
-  if (!looksMd || !cfg.mdvEnabled || typeof marked === 'undefined') { reveal(); return; }
+  if ((!looksMd && !forced) || !cfg.mdvEnabled || typeof marked === 'undefined') { reveal(); return; }
 
-  const raw = extractRaw();
+  const raw = forcedRaw != null ? forcedRaw : extractRaw();
   if (raw == null || raw === '') { reveal(); return; }
 
-  try { renderDoc(raw, cfg.mdvTheme, cfg.mdvFavicon); } catch (e) { console.error('[MarkdownView]', e); }
+  try {
+    renderDoc(raw, cfg.mdvTheme, cfg.mdvFavicon);
+    window.__mdvDone = true;
+  } catch (e) { console.error('[MarkdownView]', e); }
   reveal();
 
   function extractRaw() {

@@ -79,3 +79,20 @@ The content script runs in **sub-frames**, not just the top-level page, so a
 markdown file opened inside an iframe renders too -- notably a pane of the Split
 Screen extension. (Chrome's default is top-frame-only, which is why this needs
 `all_frames` set explicitly.)
+
+## Right-click menu
+
+The content script only auto-runs on markdown-*looking* URLs (`*.md` and friends).
+Plenty of markdown never matches that -- a raw endpoint, an API response, a `.txt`,
+a URL with a query string. Two right-click entries force the renderer anyway:
+
+- **Render this page as Markdown** -- on any page or frame. Because it's offered on
+  frames too, you can right-click inside a **Split Screen pane** and render just that
+  pane.
+- **Render selection as Markdown** -- select a chunk of markdown and render only that.
+  It reads the live selection rather than the browser's truncated `selectionText`, so
+  long passages come through whole.
+
+Permissions stay deliberately small: there are **no host permissions**. `activeTab`
+grants access only at the moment you pick a menu item, and only for that tab -- the
+extension can't read pages you haven't explicitly pointed it at.
