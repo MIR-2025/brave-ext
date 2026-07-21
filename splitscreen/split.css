@@ -315,3 +315,35 @@ body.dragging.row-resize { cursor: row-resize; }
   border-radius: 8px;
 }
 .icon-input:focus { outline: none; border-color: var(--accent); }
+
+/* ---- appearance panel ---- */
+.theme-panel {
+  position: absolute; top: 100%; right: 8px; margin-top: 6px; z-index: 60;
+  background: var(--bar); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px; width: 268px; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+.tp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 12px; color: var(--muted); }
+.tp-row label, .tp-row > span:first-child { flex: 0 0 82px; }
+.tp-row input[type=color] { width: 40px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; }
+.tp-row input[type=file] { flex: 1; font-size: 11px; color: var(--muted); }
+.tp-row input[type=range] { flex: 1; }
+.tp-actions { justify-content: flex-end; gap: 6px; margin-bottom: 0; }
+.tp-presets { display: flex; gap: 5px; flex-wrap: wrap; }
+.tp-presets button {
+  width: 20px; height: 20px; border-radius: 5px; border: 1px solid rgba(255,255,255,.22);
+  cursor: pointer; padding: 0;
+}
+
+/* ---- optional background image ---- */
+body.has-bgimg { background-size: cover; background-position: center; background-attachment: fixed; }
+body.has-bgimg::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: rgba(0, 0, 0, var(--dim, .35));
+}
+body.has-bgimg .topbar,
+body.has-bgimg .bookmarks,
+body.has-bgimg .panes { position: relative; z-index: 1; }
+/* let the picture show where there's no page loaded yet */
+body.has-bgimg .frame-wrap.empty-state,
+body.has-bgimg .pane { background: transparent; }
+body.has-bgimg .pane-bar { background: color-mix(in srgb, var(--bar) 84%, transparent); }

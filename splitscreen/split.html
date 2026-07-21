@@ -27,6 +27,21 @@
     <input id="setName" class="name-input" type="text" spellcheck="false" placeholder="Name this set">
     <button id="saveSet" class="tbtn" title="Pin this layout to the bar below">★ Save</button>
     <button id="copyLink" class="tbtn" title="Copy a bookmarkable link to this set">🔖 Copy link</button>
+    <button id="themeBtn" class="tbtn" title="Settings -- colours and background">⚙</button>
+    <div id="themePanel" class="theme-panel" hidden>
+      <div class="tp-row"><span>Presets</span><span id="tpPresets" class="tp-presets"></span></div>
+      <div class="tp-row"><label for="tpBg">Background</label><input id="tpBg" type="color" value="#1b1e24"></div>
+      <div class="tp-row"><label for="tpBar">Toolbar</label><input id="tpBar" type="color" value="#23272f"></div>
+      <div class="tp-row"><label for="tpAccent">Accent</label><input id="tpAccent" type="color" value="#14b8a6"></div>
+      <div class="tp-row"><label for="tpText">Text</label><input id="tpText" type="color" value="#e7ebf1"></div>
+      <div class="tp-row"><label for="tpImg">Image</label><input id="tpImg" type="file" accept="image/*"></div>
+      <div class="tp-row" id="tpDimRow" hidden><label for="tpDim">Dim</label>
+        <input id="tpDim" type="range" min="0" max="85" value="35"><span id="tpDimVal">35%</span></div>
+      <div class="tp-row tp-actions">
+        <button id="tpClearImg" class="tbtn" type="button" hidden>Remove image</button>
+        <button id="tpReset" class="tbtn" type="button">Reset</button>
+      </div>
+    </div>
   </header>
 
   <div class="bookmarks" id="bookmarks"></div>

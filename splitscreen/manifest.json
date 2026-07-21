@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Split Screen -- side-by-side browsing",
-  "version": "1.10.0",
+  "version": "1.12.0",
   "description": "View two or more web pages side by side in one tab. Drag the divider to resize, switch between side-by-side and stacked layouts. Local only.",
   "permissions": [
     "declarativeNetRequest",

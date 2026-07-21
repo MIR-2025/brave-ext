@@ -94,10 +94,15 @@ async function enableFraming(tabId) {
   });
 }
 
-chrome.tabs.onRemoved.addListener(async (tabId) => {
+chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
   try {
     await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tabId] });
   } catch (_) { /* rule may not exist */ }
+  // isWindowClosing tells us the tab is going away because its WINDOW is closing --
+  // i.e. you are quitting the browser, not closing this tab. Those are exactly the
+  // tabs we want back next launch, so leave the record alive. Only a deliberate
+  // close should retire a split.
+  if (removeInfo && removeInfo.isWindowClosing) return;
   markSplitClosed(tabId);
 });
 
@@ -125,12 +130,27 @@ async function markSplitClosed(tabId) {
   }
 }
 
-async function reopenSplits() {
+// onInstalled and onStartup can BOTH fire for one browser launch (loading an
+// unpacked extension is an install, and the browser is also starting). Two runs race
+// each other's dedupe -- the second queries tabs before the first one's tab has
+// registered -- and you get every split twice. Single-flight it: whoever asks first
+// does the work, everyone else awaits the same promise.
+let reopenInFlight = null;
+function reopenSplits(opts) {
+  if (!reopenInFlight) reopenInFlight = doReopenSplits(opts);
+  return reopenInFlight;
+}
+
+async function doReopenSplits(opts) {
+  const onStartup = !!(opts && opts.startup);
   const map = await getOpenSplits();
   const now = Date.now();
-  // Reopen tabs that were alive, or closed within the last 15s (i.e. by this reload).
+  // On an extension RELOAD the tabs were closed a moment ago, so a short grace
+  // window tells "closed by this reload" apart from "closed on purpose last week".
+  // On BROWSER STARTUP that window is meaningless -- the browser may have been shut
+  // for days -- so anything still recorded as alive gets restored regardless of age.
   const wanted = Object.values(map)
-    .filter((e) => e && e.set && (e.alive || (now - (e.ts || 0) < 15000)))
+    .filter((e) => e && e.set && (e.alive || (!onStartup && now - (e.ts || 0) < 15000)))
     .map((e) => e.set);
   try { await chrome.storage.local.set({ openSplits: {} }); } catch (_) { /* reopened tabs re-register */ }
   if (!wanted.length) return;
@@ -152,5 +172,5 @@ async function reopenSplits() {
   }
 }
 
-chrome.runtime.onInstalled.addListener(reopenSplits);
-chrome.runtime.onStartup.addListener(reopenSplits);
+chrome.runtime.onInstalled.addListener(() => reopenSplits({ startup: false }));
+chrome.runtime.onStartup.addListener(() => reopenSplits({ startup: true }));

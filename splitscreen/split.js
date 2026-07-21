@@ -15,6 +15,8 @@ const copyBtn = document.getElementById('copyLink');
 const saveBtn = document.getElementById('saveSet');
 const bookmarksEl = document.getElementById('bookmarks');
 const favicon = document.getElementById('favicon');
+const themeBtn = document.getElementById('themeBtn');
+const themePanel = document.getElementById('themePanel');
 
 let savedSets = [];
 
@@ -56,10 +58,12 @@ copyBtn.addEventListener('click', onCopyLink);
 saveBtn.addEventListener('click', saveCurrentSet);
 
 initBookmarks();
+initTheme();
 
 document.addEventListener('mousedown', (e) => {
   if (!e.target.closest('.tab-menu') && !e.target.closest('.tabs')) closeMenus();
   if (!e.target.closest('.grid-picker') && !e.target.closest('#gridBtn')) gridPicker.hidden = true;
+  if (!e.target.closest('.theme-panel') && !e.target.closest('#themeBtn')) themePanel.hidden = true;
 });
 
 // The service worker asks us to add a pane when you use the right-click menu.
@@ -80,6 +84,118 @@ try {
 
 buildGridPicker();
 restore();
+
+// ---- appearance ----
+// The split page is our own extension page, so unlike browser chrome we can style it
+// freely. Everything here just overrides the :root custom properties the stylesheet
+// already uses. Stored in storage.local rather than in the set snapshot: a background
+// image would bloat the bookmarkable URL far past what a URL can carry.
+
+const THEME_DEFAULT = { bg: '#1b1e24', bar: '#23272f', accent: '#14b8a6', text: '#e7ebf1', img: '', dim: 35 };
+const THEME_PRESETS = {
+  Default:  { bg: '#1b1e24', bar: '#23272f', accent: '#14b8a6', text: '#e7ebf1' },
+  Navy:     { bg: '#001028', bar: '#0a1834', accent: '#5b9dff', text: '#f2f5fa' },
+  Graphite: { bg: '#17191c', bar: '#232629', accent: '#8ab4f8', text: '#f2f3f5' },
+  Forest:   { bg: '#0d1f16', bar: '#123024', accent: '#4ade80', text: '#eaf5ee' },
+  Plum:     { bg: '#1d1230', bar: '#2a1a45', accent: '#c084fc', text: '#f4eefc' },
+  Paper:    { bg: '#eceef2', bar: '#f7f8fa', accent: '#1a56db', text: '#1b1f24' }
+};
+let theme = { ...THEME_DEFAULT };
+
+function applyTheme(t) {
+  const r = document.documentElement.style;
+  r.setProperty('--bg', t.bg);
+  r.setProperty('--bar', t.bar);
+  r.setProperty('--text', t.text);
+  r.setProperty('--accent', t.accent);
+  r.setProperty('--accent-hi', t.accent);
+  r.setProperty('--divider-hi', t.accent);
+  r.setProperty('--dim', (t.dim ?? 35) / 100);
+  document.body.style.backgroundImage = t.img ? 'url(' + t.img + ')' : '';
+  document.body.classList.toggle('has-bgimg', !!t.img);
+  document.getElementById('tpDimRow').hidden = !t.img;
+  document.getElementById('tpClearImg').hidden = !t.img;
+}
+
+async function initTheme() {
+  try {
+    const saved = (await chrome.storage.local.get('splitTheme')).splitTheme;
+    if (saved) theme = { ...THEME_DEFAULT, ...saved };
+  } catch (_) { /* defaults */ }
+  syncThemeInputs();
+  applyTheme(theme);
+
+  const presets = document.getElementById('tpPresets');
+  Object.entries(THEME_PRESETS).forEach(([name, p]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.title = name; b.style.background = p.bg;
+    b.addEventListener('click', () => { theme = { ...theme, ...p }; syncThemeInputs(); applyTheme(theme); saveTheme(); });
+    presets.appendChild(b);
+  });
+
+  themeBtn.addEventListener('click', (e) => { e.stopPropagation(); themePanel.hidden = !themePanel.hidden; });
+  const bind = (id, key) => document.getElementById(id).addEventListener('input', (e) => {
+    theme[key] = e.target.value; applyTheme(theme); saveTheme();
+  });
+  bind('tpBg', 'bg'); bind('tpBar', 'bar'); bind('tpAccent', 'accent'); bind('tpText', 'text');
+
+  document.getElementById('tpDim').addEventListener('input', (e) => {
+    theme.dim = Number(e.target.value);
+    document.getElementById('tpDimVal').textContent = theme.dim + '%';
+    applyTheme(theme); saveTheme();
+  });
+  document.getElementById('tpImg').addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try {
+      theme.img = await shrinkImage(f, 2560, 1600);
+      applyTheme(theme); saveTheme();
+    } catch (_) { /* ignore */ }
+    e.target.value = '';
+  });
+  document.getElementById('tpClearImg').addEventListener('click', () => {
+    theme.img = ''; applyTheme(theme); saveTheme();
+  });
+  document.getElementById('tpReset').addEventListener('click', () => {
+    theme = { ...THEME_DEFAULT }; syncThemeInputs(); applyTheme(theme); saveTheme();
+  });
+}
+
+function syncThemeInputs() {
+  document.getElementById('tpBg').value = theme.bg;
+  document.getElementById('tpBar').value = theme.bar;
+  document.getElementById('tpAccent').value = theme.accent;
+  document.getElementById('tpText').value = theme.text;
+  document.getElementById('tpDim').value = theme.dim ?? 35;
+  document.getElementById('tpDimVal').textContent = (theme.dim ?? 35) + '%';
+}
+
+function saveTheme() {
+  try { chrome.storage.local.set({ splitTheme: theme }); } catch (_) { /* ignore */ }
+}
+
+// Re-encode to PNG at a sane size: a phone photo would otherwise sit in storage as a
+// multi-megabyte data URL and get read on every page load.
+function shrinkImage(file, maxW, maxH) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error('read failed'));
+    fr.onload = () => {
+      const im = new Image();
+      im.onerror = () => reject(new Error('decode failed'));
+      im.onload = () => {
+        const s = Math.min(1, maxW / im.naturalWidth, maxH / im.naturalHeight);
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(im.naturalWidth * s));
+        c.height = Math.max(1, Math.round(im.naturalHeight * s));
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/jpeg', 0.85));
+      };
+      im.src = String(fr.result);
+    };
+    fr.readAsDataURL(file);
+  });
+}
 
 // ---- panes ----
 
