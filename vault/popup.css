@@ -1,0 +1,132 @@
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel2: #1e222b;
+  --line: #2a2f3a;
+  --text: #e7e9ee;
+  --muted: #99a0ad;
+  --accent: #10b981;
+  --accent-d: #0e9f74;
+  --danger: #ef4444;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  width: 360px;
+  min-height: 220px;
+  max-height: 560px;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: var(--bg); z-index: 5;
+}
+.brand { font-weight: 600; letter-spacing: .2px; }
+.lock { filter: grayscale(1) brightness(1.6); }
+.pane { padding: 14px; }
+h2 { margin: 4px 0 10px; font-size: 16px; }
+.muted { color: var(--muted); }
+.err { color: var(--danger); margin: 8px 0 0; font-size: 13px; }
+
+input, textarea {
+  width: 100%; padding: 9px 10px; margin: 6px 0;
+  background: var(--panel2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; font: inherit;
+}
+input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+textarea { resize: vertical; }
+
+button { cursor: pointer; font: inherit; border-radius: 8px; border: 1px solid transparent; }
+.primary { background: var(--accent); color: #04120c; font-weight: 600; padding: 9px 14px; width: 100%; }
+.primary:hover { background: var(--accent-d); }
+.ghost { background: var(--panel2); color: var(--text); border-color: var(--line); padding: 7px 10px; }
+.ghost:hover { border-color: var(--accent); }
+.danger { background: transparent; color: var(--danger); border-color: var(--danger); padding: 7px 10px; }
+.danger:hover { background: rgba(239,68,68,.12); }
+
+.meter { height: 4px; background: var(--panel2); border-radius: 4px; margin: 2px 0 10px; overflow: hidden; }
+.meter span { display: block; height: 100%; width: 0; background: var(--danger); transition: width .2s, background .2s; }
+
+.tools { display: flex; gap: 8px; align-items: center; }
+.tools #search { flex: 1; margin: 0; }
+.tools .ghost { flex: 0 0 auto; }
+.import-note {
+  background: rgba(16,185,129,.1); border: 1px solid var(--accent);
+  color: var(--text); padding: 8px 10px; border-radius: 8px; font-size: 12.5px; margin: 10px 0 0;
+}
+
+.list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 9px; cursor: pointer;
+}
+.item:hover { border-color: var(--accent); }
+.fav {
+  flex: 0 0 26px; height: 26px; border-radius: 6px;
+  display: grid; place-items: center; background: var(--panel2);
+  font-size: 13px; color: var(--muted); overflow: hidden;
+}
+.fav img { width: 18px; height: 18px; }
+.meta { min-width: 0; flex: 1; }
+.meta .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta .sub { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.copybtn { flex: 0 0 auto; }
+.empty { text-align: center; padding: 24px 8px; }
+
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  display: grid; place-items: start center; padding: 10px; z-index: 20; overflow-y: auto;
+}
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; width: 100%; }
+.card label { display: block; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.card label input, .card label textarea { margin-top: 3px; }
+.pwrow { display: flex; gap: 6px; align-items: center; }
+.pwrow input { flex: 1; }
+.pwrow .ghost { margin-top: 6px; }
+.row { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+.row.end { justify-content: flex-end; }
+.spacer { flex: 1; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
+  background: var(--accent); color: #04120c; font-weight: 600;
+  padding: 8px 14px; border-radius: 20px; z-index: 40; box-shadow: 0 6px 20px rgba(0,0,0,.4);
+}
+
+/* When the vault is opened as a full tab (for importing), stop pretending to be a
+   360px popup -- give it room so the entry list is actually usable. */
+body.as-tab {
+  width: auto;
+  max-width: 720px;
+  max-height: none;
+  margin: 0 auto;
+  padding-bottom: 24px;
+}
+body.as-tab .bar { border-radius: 0 0 10px 10px; }
+
+/* Placeholders vanish the moment you type -- which is exactly when you need to know
+   which box you're in. Two stacked password fields otherwise read as a login form. */
+.fieldlabel {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 10px 0 2px;
+}
+.hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 0 2px;
+}
+.err { font-weight: 600; }
+
+/* The `hidden` attribute is enforced only by the UA rule [hidden]{display:none},
+   which ANY author rule setting `display` outranks. `.overlay{display:grid}` was
+   therefore painting the entry form permanently over the whole popup -- including
+   the first-run setup pane, which you could never see or reach. Re-assert it so the
+   attribute means what it says, for every element, permanently. */
+[hidden] { display: none !important; }

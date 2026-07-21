@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="popup.css">
+  <title>Vault</title>
+</head>
+<body>
+  <header class="bar">
+    <div class="brand"><span class="lock">🔒</span> Vault</div>
+    <button id="lockBtn" class="ghost" title="Lock now" hidden>Lock</button>
+  </header>
+
+  <!-- FIRST RUN: create a master password -->
+  <section id="setup" class="pane" hidden>
+    <h2>Create your vault</h2>
+    <p class="muted">Pick a master password. It encrypts everything on this device
+      and is <strong>never stored</strong> -- if you forget it, the vault can't be
+      recovered.</p>
+    <form id="setupForm" autocomplete="off">
+      <label class="fieldlabel" for="newPw">Choose a master password</label>
+      <input type="password" id="newPw" placeholder="Master password" required minlength="8">
+      <div class="meter"><span id="pwStrength"></span></div>
+
+      <label class="fieldlabel" for="newPw2">Type that same password again</label>
+      <input type="password" id="newPw2" placeholder="Confirm master password" required>
+      <p class="hint">There is no username &mdash; this one password is the whole key.</p>
+      <button type="submit" class="primary">Create vault</button>
+      <p class="err" id="setupErr" hidden></p>
+    </form>
+  </section>
+
+  <!-- LOCKED: enter master password -->
+  <section id="locked" class="pane" hidden>
+    <h2>Unlock</h2>
+    <form id="unlockForm" autocomplete="off">
+      <input type="password" id="pw" placeholder="Master password" required autofocus>
+      <button type="submit" class="primary">Unlock</button>
+      <p class="err" id="unlockErr" hidden></p>
+    </form>
+  </section>
+
+  <!-- UNLOCKED: the vault -->
+  <section id="unlocked" class="pane" hidden>
+    <div class="tools">
+      <input type="search" id="search" placeholder="Search…" autocomplete="off">
+      <button id="addBtn" class="ghost" title="Add entry">＋</button>
+      <button id="importBtn" class="ghost" title="Import password CSV">Import</button>
+    </div>
+    <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
+    <p class="import-note" id="importNote" hidden></p>
+    <div id="list" class="list"></div>
+    <p class="empty muted" id="emptyMsg" hidden>Vault is empty. <strong>Import</strong>
+      your browser's password CSV, or add an entry with ＋.</p>
+  </section>
+
+  <!-- ENTRY DETAIL / EDIT (overlay) -->
+  <div id="detail" class="overlay" hidden>
+    <div class="card">
+      <form id="entryForm" autocomplete="off">
+        <label>Name<input type="text" id="fName" required></label>
+        <label>URL<input type="text" id="fUrl" placeholder="https://…"></label>
+        <label>Username<input type="text" id="fUser" autocomplete="off"></label>
+        <label>Password
+          <span class="pwrow">
+            <input type="password" id="fPass" autocomplete="new-password">
+            <button type="button" class="ghost" id="revealBtn" title="Show/Hide">👁</button>
+          </span>
+        </label>
+        <label>Note<textarea id="fNote" rows="2"></textarea></label>
+        <div class="row">
+          <button type="button" class="ghost" id="copyUser">Copy user</button>
+          <button type="button" class="ghost" id="copyPass">Copy pass</button>
+        </div>
+        <div class="row end">
+          <button type="button" class="danger" id="deleteBtn">Delete</button>
+          <span class="spacer"></span>
+          <button type="button" class="ghost" id="cancelBtn">Cancel</button>
+          <button type="submit" class="primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="lib/crypto.js"></script>
+  <script src="lib/csv.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
