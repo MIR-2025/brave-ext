@@ -30,6 +30,15 @@ let colSizes = [1, 1];   // fr weight per column
 let rowSizes = [1];      // fr weight per row
 let setName = '';
 let setIcon = '';   // optional per-set tab icon (emoji)
+
+// Declared up here, NOT next to notifyAlive() where it is used, and that placement
+// is deliberate. `restore()` runs at the top level of this file, and it calls
+// save() -> notifyAlive(), which touches this variable. A `let` further down the
+// file is still in its temporal dead zone at that moment, so reading it threw
+// "Cannot access 'aliveTimer' before initialization" -- and because that throw
+// escaped during initialization, every listener wired up after restore() (the
+// settings gear among them) was never attached. Keep this above restore().
+let aliveTimer = null;
 let building = false;    // suppress persistence while bulk-building
 
 function rowCount() { return Math.max(1, Math.ceil(panes.length / cols)); }
@@ -57,9 +66,6 @@ iconInput.addEventListener('input', () => { setIcon = iconInput.value.trim(); sa
 copyBtn.addEventListener('click', onCopyLink);
 saveBtn.addEventListener('click', saveCurrentSet);
 
-initBookmarks();
-initTheme();
-
 document.addEventListener('mousedown', (e) => {
   if (!e.target.closest('.tab-menu') && !e.target.closest('.tabs')) closeMenus();
   if (!e.target.closest('.grid-picker') && !e.target.closest('#gridBtn')) gridPicker.hidden = true;
@@ -82,8 +88,7 @@ try {
   chrome.tabs.onRemoved.addListener(scheduleRefresh);
 } catch (_) { /* events unavailable */ }
 
-buildGridPicker();
-restore();
+// (Initialization runs at the BOTTOM of this file -- see the note down there.)
 
 // ---- appearance ----
 // The split page is our own extension page, so unlike browser chrome we can style it
@@ -111,10 +116,45 @@ function applyTheme(t) {
   r.setProperty('--accent-hi', t.accent);
   r.setProperty('--divider-hi', t.accent);
   r.setProperty('--dim', (t.dim ?? 35) / 100);
-  document.body.style.backgroundImage = t.img ? 'url(' + t.img + ')' : '';
+  // The banner is painted by a fixed ::before layer (see split.css) that reads
+  // --bg-img; the bars in the band are transparent windows onto it. Setting a var
+  // rather than an element background is what lets one image span the toolbar, the
+  // saved-sets bar and the pane URL bars seamlessly.
+  r.setProperty('--bg-img', t.img ? 'url(' + t.img + ')' : 'none');
   document.body.classList.toggle('has-bgimg', !!t.img);
+  if (t.img) updateBanner();
   document.getElementById('tpDimRow').hidden = !t.img;
   document.getElementById('tpClearImg').hidden = !t.img;
+}
+
+// Height of the banner strip = the header (toolbar + saved-sets bar) plus one pane
+// URL bar, so the image reaches down through the URL row. It may run a touch tall
+// without harm: the overshoot hides behind the opaque panes below the URL bars.
+// Re-measured whenever the layout that changes those heights changes.
+function bannerSize() {
+  const header = document.querySelector('.header');
+  const bar = document.querySelector('.pane-bar');
+  return {
+    w: Math.round(window.innerWidth),
+    h: (header ? header.offsetHeight : 92) + (bar ? bar.offsetHeight : 44),
+  };
+}
+
+function updateBanner() {
+  document.documentElement.style.setProperty('--banner-h', bannerSize().h + 'px');
+}
+
+// The banner is stretched to exactly (window width x band height), so the image
+// that fits with no distortion is one of those pixel dimensions. Show the live
+// figure for THIS window so the number is real, not a guessed 1920-wide default.
+function updateImgHint() {
+  const el = document.getElementById('tpImgHint');
+  if (!el) return;
+  const { w, h } = bannerSize();
+  el.innerHTML =
+    `Fills the top bar. Ideal: <b>${w} &times; ${h}px</b> ` +
+    `(a wide strip, about ${(w / h).toFixed(0)}:1). It is stretched to fit, so ` +
+    `match the shape and any width works.`;
 }
 
 async function initTheme() {
@@ -133,7 +173,12 @@ async function initTheme() {
     presets.appendChild(b);
   });
 
-  themeBtn.addEventListener('click', (e) => { e.stopPropagation(); themePanel.hidden = !themePanel.hidden; });
+  themeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    themePanel.hidden = !themePanel.hidden;
+    if (!themePanel.hidden) updateImgHint(); // refresh dims each time it opens
+  });
+  updateImgHint();
   const bind = (id, key) => document.getElementById(id).addEventListener('input', (e) => {
     theme[key] = e.target.value; applyTheme(theme); saveTheme();
   });
@@ -199,12 +244,136 @@ function shrinkImage(file, maxW, maxH) {
 
 // ---- panes ----
 
+// ---- URL history autocomplete ----------------------------------------------
+// Suggests pages from browsing history as you type in a pane's URL field. Needs
+// the "history" permission; degrades to nothing if it is unavailable. One shared
+// dropdown (body-level, fixed) serves whichever field is focused.
+const urlSuggest = (() => {
+  const box = document.createElement('div');
+  box.className = 'url-suggest';
+  box.hidden = true;
+  document.body.appendChild(box);
+
+  let pane = null;     // the pane whose field the dropdown belongs to
+  let items = [];      // current suggestions
+  let sel = -1;        // highlighted row, -1 = none
+  let seq = 0;         // guards against out-of-order async results
+  let timer = null;
+
+  const available = () => !!(chrome.history && chrome.history.search);
+
+  function hide() { box.hidden = true; items = []; sel = -1; pane = null; }
+
+  function place(input) {
+    const r = input.getBoundingClientRect();
+    box.style.left = Math.round(r.left) + 'px';
+    box.style.top = Math.round(r.bottom + 3) + 'px';
+    box.style.width = Math.round(r.width) + 'px';
+  }
+
+  // Rank: a domain the query prefixes, then things typed often / visited often.
+  function score(h, q) {
+    const url = (h.url || '').toLowerCase();
+    const title = (h.title || '').toLowerCase();
+    let s = (h.visitCount || 0) + (h.typedCount || 0) * 3;
+    if (url.includes('://' + q) || url.includes('://www.' + q)) s += 800;
+    else if (url.includes('/' + q) || title.startsWith(q)) s += 120;
+    else if (url.includes(q) || title.includes(q)) s += 40;
+    return s;
+  }
+
+  function render() {
+    box.textContent = '';
+    items.forEach((it, i) => {
+      const row = document.createElement('div');
+      row.className = 'us-row' + (i === sel ? ' sel' : '');
+
+      const fav = document.createElement('img');
+      fav.className = 'us-fav';
+      try {
+        fav.src = chrome.runtime.getURL(
+          '/_favicon/?pageUrl=' + encodeURIComponent(it.url) + '&size=16');
+      } catch (_) { /* no favicon */ }
+      fav.addEventListener('error', () => { fav.style.visibility = 'hidden'; });
+
+      const text = document.createElement('div');
+      text.className = 'us-text';
+      const t = document.createElement('div');
+      t.className = 'us-title';
+      t.textContent = it.title || it.url;
+      const u = document.createElement('div');
+      u.className = 'us-url';
+      u.textContent = it.url;
+      text.append(t, u);
+
+      row.append(fav, text);
+      // mousedown, not click: fires before the field's blur so the dropdown is
+      // still alive when we read the choice.
+      row.addEventListener('mousedown', (e) => { e.preventDefault(); accept(i); });
+      box.appendChild(row);
+    });
+    box.hidden = items.length === 0;
+  }
+
+  async function run(p) {
+    if (!available()) return;
+    const text = p.urlInput.value.trim();
+    if (text.length < 2) { hide(); return; }
+    const my = ++seq;
+    let res = [];
+    try {
+      res = await chrome.history.search({ text, maxResults: 40, startTime: 0 });
+    } catch (_) { hide(); return; }
+    if (my !== seq) return;                 // superseded by a newer keystroke
+    const q = text.toLowerCase();
+    const seen = new Set();
+    res = res.filter((h) => h.url && !seen.has(h.url) && seen.add(h.url));
+    res.sort((a, b) => score(b, q) - score(a, q));
+    items = res.slice(0, 8);
+    sel = -1;
+    pane = p;
+    place(p.urlInput);
+    render();
+  }
+
+  function schedule(p) {
+    clearTimeout(timer);
+    timer = setTimeout(() => run(p), 110);
+  }
+
+  function accept(i) {
+    if (i < 0 || i >= items.length || !pane) return;
+    const p = pane;
+    const url = items[i].url;
+    hide();
+    navigate(p, url);
+  }
+
+  // Returns true if it handled the key (caller should then not also navigate).
+  function onKey(e) {
+    if (box.hidden || !items.length) return false;
+    if (e.key === 'ArrowDown') { sel = (sel + 1) % items.length; render(); e.preventDefault(); return true; }
+    if (e.key === 'ArrowUp') { sel = (sel - 1 + items.length) % items.length; render(); e.preventDefault(); return true; }
+    if (e.key === 'Enter' && sel >= 0) { accept(sel); e.preventDefault(); return true; }
+    if (e.key === 'Escape') { hide(); e.preventDefault(); return true; }
+    return false;
+  }
+
+  // Keep it pinned to the field if the layout shifts while it is open.
+  window.addEventListener('resize', hide);
+  window.addEventListener('scroll', () => { if (!box.hidden && pane) place(pane.urlInput); }, true);
+
+  return { schedule, onKey, hide, available };
+})();
+
 function createPaneObj() {
   const el = document.createElement('div');
   el.className = 'pane';
   el.innerHTML =
     '<div class="pane-bar">' +
       '<button class="icon grip" title="Drag to move this pane">⠿</button>' +
+      '<button class="icon back" title="Back">‹</button>' +
+      '<button class="icon fwd" title="Forward">›</button>' +
       '<button class="icon reload" title="Reload">↻</button>' +
       '<input class="url" type="text" spellcheck="false" placeholder="Enter a URL or search, then press Enter">' +
       '<button class="icon tabs" title="Choose an open tab">☰</button>' +
@@ -240,12 +409,19 @@ function createPaneObj() {
   pane.menuList.__pane = pane;
   pane.overlayList.__pane = pane;
 
+  el.querySelector('.back').addEventListener('click', () => paneNav(pane, -1));
+  el.querySelector('.fwd').addEventListener('click', () => paneNav(pane, 1));
   el.querySelector('.reload').addEventListener('click', () => reload(pane));
   el.querySelector('.open').addEventListener('click', () => { if (pane.url) window.open(pane.url, '_blank'); });
   el.querySelector('.close').addEventListener('click', () => removePane(pane));
   el.querySelector('.tabs').addEventListener('click', () => toggleMenu(pane));
+  pane.urlInput.addEventListener('input', () => urlSuggest.schedule(pane));
+  pane.urlInput.addEventListener('focus', () => urlSuggest.schedule(pane));
+  // Delay the hide so a mousedown on a suggestion is processed first.
+  pane.urlInput.addEventListener('blur', () => setTimeout(() => urlSuggest.hide(), 120));
   pane.urlInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') navigate(pane, pane.urlInput.value);
+    if (urlSuggest.onKey(e)) return;              // arrows / enter-on-selection / escape
+    if (e.key === 'Enter') { urlSuggest.hide(); navigate(pane, pane.urlInput.value); }
   });
   wireReorder(pane, el);
 
@@ -288,6 +464,15 @@ async function navigate(pane, raw) {
 
 function reload(pane) {
   if (pane.url) pane.iframe.src = pane.url; // reassigning src reloads the frame
+}
+
+// Step this pane's frame back (-1) or forward (+1) through its own history. The
+// content script inside the frame does the actual history.go (see panewatch.js);
+// a cross-origin parent can't. postMessage to '*' is fine -- the payload carries
+// no secrets and the receiver checks the message came from its parent.
+function paneNav(pane, dir) {
+  if (!pane.iframe || !pane.iframe.contentWindow) return;
+  try { pane.iframe.contentWindow.postMessage({ __splitNav: dir }, '*'); } catch (_) { /* frame gone */ }
 }
 
 function fillFirstEmpty(url) {
@@ -384,6 +569,7 @@ function relayout() {
   placePanes();
   buildGutters();
   gridLabel.textContent = cols + ' × ' + rowCount();
+  updateBanner(); // grid/pane changes can alter the pane-bar row height
 }
 
 function ensureSizes() {
@@ -808,7 +994,7 @@ function snapshot() {
   };
 }
 
-let aliveTimer = null;
+// (aliveTimer is declared at the top of the file -- see the note there.)
 function notifyAlive(enc) {
   clearTimeout(aliveTimer);
   aliveTimer = setTimeout(() => {
@@ -968,6 +1154,7 @@ function renderBookmarks() {
     chip.addEventListener('click', () => loadSet(s.snap));
     bookmarksEl.appendChild(chip);
   }
+  updateBanner(); // the saved-sets row can wrap to a new height, changing the band
 }
 
 function updateActiveChips() {
@@ -1000,3 +1187,35 @@ async function onCopyLink() {
   }
   setTimeout(() => { copyBtn.textContent = original; }, 1500);
 }
+
+// ---- init ----------------------------------------------------------------
+// This block runs LAST, and that is load-bearing -- do not hoist it back to the
+// top of the file.
+//
+// These four calls read module-level state (icon caches, LOCAL_HOST_RE, the
+// theme presets) that is declared further down. Run them from the top and those
+// `const`/`let` bindings are still in their temporal dead zone, so the first one
+// touched throws "Cannot access X before initialization". That is not a
+// contained failure: the throw escapes top-level evaluation, so every listener
+// registered after it -- including the settings gear -- is never attached, and
+// you get a split page you can look at but cannot configure.
+//
+// Running init after every declaration in the file has been evaluated makes that
+// whole class of bug impossible rather than fixing it one variable at a time.
+function init() {
+  initBookmarks();
+  initTheme();
+  buildGridPicker();
+  // the banner strip height tracks the header + URL bar, which change on resize
+  window.addEventListener('resize', () => { updateBanner(); updateImgHint(); });
+  // restore() rebuilds the entire layout from storage, so it touches the most
+  // state and is the likeliest thing here to throw. Contained so that a bad
+  // restore costs you the restore and nothing else.
+  try {
+    restore();
+  } catch (e) {
+    console.error('[Split Screen] restore failed; continuing with an empty layout', e);
+  }
+}
+
+init();

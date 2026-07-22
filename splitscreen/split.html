@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="split.css">
 </head>
 <body>
+  <!-- The toolbar and the saved-sets bar together form the header band. Wrapping
+       them lets an optional background image sit behind both as one banner. -->
+  <div class="header">
   <header class="topbar">
     <div class="brand">
       <img src="icons/icon32.png" alt="" width="20" height="20">
@@ -35,6 +38,7 @@
       <div class="tp-row"><label for="tpAccent">Accent</label><input id="tpAccent" type="color" value="#14b8a6"></div>
       <div class="tp-row"><label for="tpText">Text</label><input id="tpText" type="color" value="#e7ebf1"></div>
       <div class="tp-row"><label for="tpImg">Image</label><input id="tpImg" type="file" accept="image/*"></div>
+      <div class="tp-hint" id="tpImgHint"></div>
       <div class="tp-row" id="tpDimRow" hidden><label for="tpDim">Dim</label>
         <input id="tpDim" type="range" min="0" max="85" value="35"><span id="tpDimVal">35%</span></div>
       <div class="tp-row tp-actions">
@@ -45,6 +49,7 @@
   </header>
 
   <div class="bookmarks" id="bookmarks"></div>
+  </div><!-- .header -->
 
   <div class="panes" id="panes"></div>
 

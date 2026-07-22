@@ -199,6 +199,26 @@ body { display: flex; flex-direction: column; }
 .icon:disabled { opacity: .35; cursor: default; }
 .icon.close:hover:not(:disabled) { background: #5a2a2a; border-color: #7a3a3a; }
 
+/* ---- URL history autocomplete ----
+   One shared dropdown, appended to <body> and fixed-positioned under the focused
+   URL field. Body-level + high z-index so it paints over the opaque pane iframes
+   (an in-pane dropdown would be clipped by .pane's overflow:hidden and fight the
+   iframe for stacking). */
+.url-suggest {
+  position: fixed; z-index: 80; max-height: 46vh; overflow-y: auto;
+  background: var(--bar); border: 1px solid var(--line); border-radius: 9px;
+  box-shadow: 0 12px 34px rgba(0,0,0,.55); padding: 4px;
+}
+.us-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 9px; border-radius: 6px; cursor: pointer;
+}
+.us-row.sel, .us-row:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.us-fav { width: 16px; height: 16px; flex: 0 0 16px; border-radius: 3px; }
+.us-text { min-width: 0; flex: 1; }
+.us-title { font-size: 12.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.us-url { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .frame-wrap {
   position: relative;
   flex: 1;
@@ -327,6 +347,8 @@ body.dragging.row-resize { cursor: row-resize; }
 .tp-row input[type=color] { width: 40px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; }
 .tp-row input[type=file] { flex: 1; font-size: 11px; color: var(--muted); }
 .tp-row input[type=range] { flex: 1; }
+.tp-hint { font-size: 11px; color: var(--muted); margin: -3px 0 8px; line-height: 1.4; }
+.tp-hint b { color: var(--text); font-weight: 600; }
 .tp-actions { justify-content: flex-end; gap: 6px; margin-bottom: 0; }
 .tp-presets { display: flex; gap: 5px; flex-wrap: wrap; }
 .tp-presets button {
@@ -334,16 +356,51 @@ body.dragging.row-resize { cursor: row-resize; }
   cursor: pointer; padding: 0;
 }
 
-/* ---- optional background image ---- */
-body.has-bgimg { background-size: cover; background-position: center; background-attachment: fixed; }
+/* ---- optional background image: a top banner ----
+   The image spans the whole top band -- toolbar, saved-sets bar, AND the pane URL
+   bars beneath them -- as ONE continuous picture, not behind the pages (a loaded
+   pane is an opaque cross-origin iframe, so an image there is invisible anyway).
+
+   How it stays seamless: rather than clip the image to each bar, we paint it ONCE
+   as a viewport-fixed strip (::before) behind everything, then make every bar in
+   the band transparent so they are windows onto that single strip. --bg-img and
+   --banner-h are set from JS (updateBanner measures header + one pane-bar).
+   --banner-h can safely run a little tall: any overshoot falls behind the opaque
+   iframes/panes below the URL bars, so it is never seen. */
+.header { position: relative; flex: 0 0 auto; }
+
 body.has-bgimg::before {
-  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background: rgba(0, 0, 0, var(--dim, .35));
+  content: ''; position: fixed; top: 0; left: 0; right: 0;
+  height: var(--banner-h, 132px);
+  /* scrim composited OVER the image in the same layer, so toolbar/URL text stays
+     legible on any picture. Strength is the Dim slider (--dim). */
+  background:
+    linear-gradient(rgba(0,0,0,var(--dim,.35)), rgba(0,0,0,var(--dim,.35))),
+    var(--bg-img, none);
+  background-size: 100% var(--banner-h, 132px);
+  background-position: top center;
+  background-repeat: no-repeat;
+  z-index: 0; pointer-events: none;
 }
+/* Every bar in the band goes transparent so the fixed strip shows through, and
+   the panes/frames drop their opaque fills for the strip's height. The header
+   also out-ranks the panes: it holds the theme panel (z-index 60), and giving an
+   ancestor a z-index makes it a stacking context that would trap that panel --
+   with the panes at a matching level and later in the DOM they would paint over
+   the "open" panel and the settings gear would look dead. Header above panes
+   keeps it reachable; the ::before strip sits below both at z-index 0. */
+body.has-bgimg .header { z-index: 5; }
 body.has-bgimg .topbar,
-body.has-bgimg .bookmarks,
+body.has-bgimg .bookmarks { position: relative; z-index: 1; background: transparent; }
 body.has-bgimg .panes { position: relative; z-index: 1; }
-/* let the picture show where there's no page loaded yet */
-body.has-bgimg .frame-wrap.empty-state,
 body.has-bgimg .pane { background: transparent; }
-body.has-bgimg .pane-bar { background: color-mix(in srgb, var(--bar) 84%, transparent); }
+body.has-bgimg .pane-bar { background: transparent; }
+
+/* The URL field and the pane buttons are opaque by default, which would punch
+   solid boxes through the banner. Make them semi-transparent so the picture tints
+   through the whole URL bar -- but keep enough dark fill (and bump it on focus)
+   that the URL text stays readable. */
+body.has-bgimg .pane-bar .url { background: rgba(15, 18, 24, .42); }
+body.has-bgimg .pane-bar .url:focus { background: rgba(15, 18, 24, .72); }
+body.has-bgimg .pane-bar .icon { background: rgba(44, 49, 59, .42); }
+body.has-bgimg .pane-bar .icon:hover:not(:disabled) { background: rgba(53, 59, 71, .7); }
