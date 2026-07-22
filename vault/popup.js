@@ -204,9 +204,128 @@ async function deleteEntry() {
   toast('Deleted');
 }
 
-// ---- CSV import -----------------------------------------------------------
-async function importCSV(file) {
+// ---- encrypted backup: export ---------------------------------------------
+//
+// The file is the same AES-256-GCM ciphertext that sits in storage.local, plus
+// the KDF parameters needed to reproduce the key. That is the whole trick: the
+// salt travels WITH the backup, so the file opens on any machine given the
+// master password that was in force when it was written -- no key export, no
+// second secret, nothing in the file that is useful without the password.
+const BACKUP_FORMAT = 'vault-backup';
+
+async function exportBackup() {
+  const meta = await getLocal('vaultMeta');
+  const enc = await VC.encryptObj(_key, _vault); // fresh IV, never reused
+  const doc = {
+    format: BACKUP_FORMAT,
+    version: 1,
+    createdAt: new Date().toISOString(),
+    entryCount: _vault.entries.length,
+    kdf: { name: 'PBKDF2-SHA256', salt: meta.salt, iterations: meta.iterations },
+    cipher: 'AES-256-GCM',
+    iv: enc.iv,
+    data: enc.data,
+  };
+
+  const url = URL.createObjectURL(
+    new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
+  );
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vault-${new Date().toISOString().slice(0, 10)}.vault`;
+  document.body.append(a);
+  a.click();  // synchronous -- the download is captured even if the popup then closes
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+
+  const note = $('importNote');
+  note.textContent =
+    `Backed up ${doc.entryCount} ${doc.entryCount === 1 ? 'entry' : 'entries'}, ` +
+    `encrypted. Safe to copy anywhere -- it is useless without your master password.`;
+  note.hidden = false;
+  toast('Backup downloaded');
+}
+
+// ---- encrypted backup: restore --------------------------------------------
+let _pendingBackup = null;
+
+function looksLikeBackup(text) {
+  const t = text.trimStart();
+  return t.startsWith('{') && t.includes(`"${BACKUP_FORMAT}"`);
+}
+
+function openRestore(doc) {
+  _pendingBackup = doc;
+  const when = doc.createdAt ? new Date(doc.createdAt).toLocaleString() : 'an unknown date';
+  const n = doc.entryCount;
+  $('restoreInfo').textContent =
+    `Backup from ${when}` + (typeof n === 'number' ? `, ${n} ${n === 1 ? 'entry' : 'entries'}.` : '.');
+  $('restoreErr').hidden = true;
+  $('restorePw').value = '';
+  $('restore').hidden = false;
+  $('restorePw').focus();
+}
+
+function closeRestore() {
+  $('restore').hidden = true;
+  _pendingBackup = null;
+}
+
+// Everything here comes out of a file we did not write, so treat it as hostile:
+// clamp the iteration count before handing it to PBKDF2 (a file claiming a
+// billion rounds would otherwise wedge the browser on submit).
+async function restoreFromBackup(doc, pw) {
+  const iters = Math.min(Math.max(parseInt(doc.kdf.iterations, 10) || 0, 1000), 2000000);
+  const key = await VC.deriveKey(pw, VC.ub64(doc.kdf.salt), iters);
+  let payload;
+  try {
+    payload = await VC.decryptObj(key, doc.iv, doc.data); // throws on wrong password
+  } catch (e) {
+    return null;
+  }
+  const incoming = Array.isArray(payload && payload.entries) ? payload.entries : [];
+
+  // Merge, never replace: a restore should not be able to destroy entries that
+  // only exist in the vault you are restoring INTO. Identical entries are
+  // skipped so restoring the same file twice is a no-op.
+  const sig = (e) => [e.name, e.url, e.username, e.password].join(' ');
+  const have = new Set(_vault.entries.map(sig));
+  let added = 0, skipped = 0;
+  for (const e of incoming) {
+    if (have.has(sig(e))) { skipped++; continue; }
+    have.add(sig(e));
+    _vault.entries.push({
+      id: crypto.randomUUID(), // fresh id -- never trust ids from a file
+      name: e.name || 'Untitled',
+      url: e.url || '',
+      username: e.username || '',
+      password: e.password || '',
+      note: e.note || '',
+    });
+    added++;
+  }
+  await saveVault();
+  return { added, skipped };
+}
+
+// ---- file picked: CSV or .vault -------------------------------------------
+async function handleFile(file) {
   const text = await file.text();
+  if (file.name.toLowerCase().endsWith('.vault') || looksLikeBackup(text)) {
+    let doc = null;
+    try { doc = JSON.parse(text); } catch (e) { /* handled below */ }
+    if (!doc || doc.format !== BACKUP_FORMAT || !doc.kdf || !doc.iv || !doc.data) {
+      toast('That is not a Vault backup file');
+      return;
+    }
+    openRestore(doc);
+    return;
+  }
+  await importCSV(text);
+}
+
+// ---- CSV import -----------------------------------------------------------
+async function importCSV(text) {
   const rows = self.VaultCSV.fromPasswordCSV(text);
   if (!rows.length) {
     toast('No rows found in that CSV');
@@ -274,11 +393,47 @@ function wire() {
   $('addBtn').addEventListener('click', () => openDetail(null));
 
   $('importBtn').addEventListener('click', onImportClick);
-  $('csvFile').addEventListener('change', async (ev) => {
+  $('importFile').addEventListener('change', async (ev) => {
     const f = ev.target.files[0];
-    if (f) await importCSV(f);
+    if (f) await handleFile(f);
     ev.target.value = ''; // allow re-selecting the same file
   });
+
+  // Export needs no file picker -- a blob download does not steal focus the way
+  // an OS open-dialog does, so this works from the action popup as-is.
+  $('exportBtn').addEventListener('click', async () => {
+    $('exportBtn').disabled = true;
+    try { await exportBackup(); } catch (e) {
+      console.error('[Vault]', e);
+      toast('Export failed');
+    }
+    $('exportBtn').disabled = false;
+  });
+
+  $('restoreForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!_pendingBackup) return;
+    const err = $('restoreErr');
+    err.hidden = true;
+    $('restoreGo').disabled = true;
+    const res = await restoreFromBackup(_pendingBackup, $('restorePw').value);
+    $('restoreGo').disabled = false;
+    if (!res) {
+      err.textContent = 'Wrong master password for this backup.';
+      err.hidden = false;
+      $('restorePw').select();
+      return;
+    }
+    closeRestore();
+    renderList($('search').value);
+    const note = $('importNote');
+    note.textContent = `Restored ${res.added} ${res.added === 1 ? 'entry' : 'entries'}` +
+      (res.skipped ? `, skipped ${res.skipped} already here.` : '.');
+    note.hidden = false;
+    toast('Restored');
+  });
+  $('restoreCancel').addEventListener('click', closeRestore);
+  $('restore').addEventListener('click', (ev) => { if (ev.target === $('restore')) closeRestore(); });
 
   $('entryForm').addEventListener('submit', saveEntry);
   $('cancelBtn').addEventListener('click', closeDetail);
@@ -292,12 +447,14 @@ function wire() {
 
   $('detail').addEventListener('click', (ev) => { if (ev.target === $('detail')) closeDetail(); });
   document.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape' && !$('detail').hidden) closeDetail();
+    if (ev.key !== 'Escape') return;
+    if (!$('restore').hidden) closeRestore();
+    else if (!$('detail').hidden) closeDetail();
   });
 }
 
 async function onImportClick() {
-  if (IS_TAB) { $('csvFile').click(); return; }   // in a tab the picker works normally
+  if (IS_TAB) { $('importFile').click(); return; }  // in a tab the picker works normally
   // In the action popup it cannot: the OS dialog steals focus and the popup (and this
   // script) are destroyed before the file is read. Hand off to the worker, and wait
   // for its reply -- closing first would kill the message along with us.

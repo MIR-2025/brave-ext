@@ -46,9 +46,10 @@
     <div class="tools">
       <input type="search" id="search" placeholder="Search…" autocomplete="off">
       <button id="addBtn" class="ghost" title="Add entry">＋</button>
-      <button id="importBtn" class="ghost" title="Import password CSV">Import</button>
+      <button id="importBtn" class="ghost" title="Import a password CSV or restore a .vault backup">Import</button>
+      <button id="exportBtn" class="ghost" title="Download an encrypted .vault backup">Export</button>
     </div>
-    <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
+    <input type="file" id="importFile" accept=".csv,.vault,text/csv,application/json" hidden>
     <p class="import-note" id="importNote" hidden></p>
     <div id="list" class="list"></div>
     <p class="empty muted" id="emptyMsg" hidden>Vault is empty. <strong>Import</strong>
@@ -79,6 +80,28 @@
           <button type="button" class="ghost" id="cancelBtn">Cancel</button>
           <button type="submit" class="primary">Save</button>
         </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- RESTORE FROM BACKUP (overlay) -- a .vault file carries its own salt, so it
+       opens with whatever the master password was WHEN IT WAS MADE, which is not
+       necessarily the one protecting this vault right now. -->
+  <div id="restore" class="overlay" hidden>
+    <div class="card">
+      <h2>Restore from backup</h2>
+      <p class="muted" id="restoreInfo"></p>
+      <form id="restoreForm" autocomplete="off">
+        <label class="fieldlabel" for="restorePw">Master password for this backup file</label>
+        <input type="password" id="restorePw" placeholder="Master password" required>
+        <p class="hint">Whatever the master password was when this backup was made
+          &mdash; not necessarily your current one. Entries are added to this vault;
+          nothing already here is removed.</p>
+        <div class="row end">
+          <button type="button" class="ghost" id="restoreCancel">Cancel</button>
+          <button type="submit" class="primary" id="restoreGo">Restore</button>
+        </div>
+        <p class="err" id="restoreErr" hidden></p>
       </form>
     </div>
   </div>

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vault -- local password manager",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "A local-only password vault. Import your browser's password CSV, encrypt it with a master password (AES-256-GCM), and keep it on this device. Nothing syncs, nothing leaves.",
   "permissions": ["storage", "clipboardWrite", "alarms"],
   "action": {

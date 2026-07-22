@@ -43,6 +43,23 @@ The importer maps columns **by header**, so exports from Bitwarden, 1Password,
 LastPass, KeePass, etc. (any `name,url,username,password[,note]`-style CSV) work
 too, in any column order.
 
+## Encrypted backup (export / restore)
+
+**Export** writes a single `vault-YYYY-MM-DD.vault` file: the same AES-256-GCM
+ciphertext that lives in `chrome.storage.local`, plus the KDF parameters (salt +
+iteration count) needed to reproduce the key. The salt travels *with* the backup,
+so the file opens on any machine given the master password that was in force when
+it was written -- there is no key in the file and nothing in it is useful without
+the password. It is safe to copy anywhere; a round-trip was verified to contain
+zero plaintext. Back it up by copying that one small file.
+
+**Restore** (via **Import**, which now takes a `.csv` *or* a `.vault`) asks for
+that file's master password -- which may differ from your current one, since the
+file carries its own salt -- then **merges** its entries into the current vault.
+Nothing already present is deleted, and identical entries are skipped, so
+restoring the same file twice is a no-op. A wrong password fails the GCM auth
+check and is rejected, exactly like unlock.
+
 ## Install (load unpacked)
 
 1. `brave://extensions` → enable **Developer mode**.
