@@ -32,7 +32,9 @@
     <button id="copyLink" class="tbtn" title="Copy a bookmarkable link to this set">🔖 Copy link</button>
     <button id="themeBtn" class="tbtn" title="Settings -- colours and background">⚙</button>
     <div id="themePanel" class="theme-panel" hidden>
-      <div class="tp-row"><span>Presets</span><span id="tpPresets" class="tp-presets"></span></div>
+      <div class="tp-row tp-looks-row"><span>Looks</span><span id="tpLooks" class="tp-looks"></span></div>
+      <div class="tp-row"><span>Colors</span><span id="tpPresets" class="tp-presets"></span></div>
+      <div class="tp-row tp-banner-row"><span>Banner</span><span id="tpBanners" class="tp-banners"></span></div>
       <div class="tp-row"><label for="tpBg">Background</label><input id="tpBg" type="color" value="#1b1e24"></div>
       <div class="tp-row"><label for="tpBar">Toolbar</label><input id="tpBar" type="color" value="#23272f"></div>
       <div class="tp-row"><label for="tpAccent">Accent</label><input id="tpAccent" type="color" value="#14b8a6"></div>
@@ -41,6 +43,9 @@
       <div class="tp-hint" id="tpImgHint"></div>
       <div class="tp-row" id="tpDimRow" hidden><label for="tpDim">Dim</label>
         <input id="tpDim" type="range" min="0" max="85" value="35"><span id="tpDimVal">35%</span></div>
+      <div class="tp-row"><label for="tpSuggest">Suggestions</label>
+        <input id="tpSuggest" type="checkbox" checked>
+        <span class="tp-note">search hints as you type (sends keystrokes to DuckDuckGo)</span></div>
       <div class="tp-row tp-actions">
         <button id="tpClearImg" class="tbtn" type="button" hidden>Remove image</button>
         <button id="tpReset" class="tbtn" type="button">Reset</button>

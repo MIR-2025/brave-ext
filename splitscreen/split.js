@@ -20,6 +20,10 @@ const themePanel = document.getElementById('themePanel');
 
 let savedSets = [];
 
+// Global image carousel shared by EVERY blank pane. Stored as shrunk JPEG data
+// URLs (persisted), so it survives reloads and any new/emptied pane picks it up.
+let carouselImgs = [];
+
 const MAX_TRACKS = 6;
 const MIN_SIZE = 80;
 
@@ -96,15 +100,70 @@ try {
 // already uses. Stored in storage.local rather than in the set snapshot: a background
 // image would bloat the bookmarkable URL far past what a URL can carry.
 
-const THEME_DEFAULT = { bg: '#1b1e24', bar: '#23272f', accent: '#14b8a6', text: '#e7ebf1', img: '', dim: 35 };
+const THEME_DEFAULT = { bg: '#1b1e24', bar: '#23272f', accent: '#14b8a6', text: '#e7ebf1', img: '', dim: 35, webSuggest: true };
+// Colour-only presets (the swatch row): set the four colours, leave the banner.
 const THEME_PRESETS = {
   Default:  { bg: '#1b1e24', bar: '#23272f', accent: '#14b8a6', text: '#e7ebf1' },
   Navy:     { bg: '#001028', bar: '#0a1834', accent: '#5b9dff', text: '#f2f5fa' },
   Graphite: { bg: '#17191c', bar: '#232629', accent: '#8ab4f8', text: '#f2f3f5' },
   Forest:   { bg: '#0d1f16', bar: '#123024', accent: '#4ade80', text: '#eaf5ee' },
   Plum:     { bg: '#1d1230', bar: '#2a1a45', accent: '#c084fc', text: '#f4eefc' },
-  Paper:    { bg: '#eceef2', bar: '#f7f8fa', accent: '#1a56db', text: '#1b1f24' }
+  Paper:    { bg: '#eceef2', bar: '#f7f8fa', accent: '#1a56db', text: '#1b1f24' },
+  Crimson:  { bg: '#1a0d10', bar: '#2a141a', accent: '#fb7185', text: '#fbe9ec' },
+  Mint:     { bg: '#08201c', bar: '#0f312b', accent: '#2dd4bf', text: '#e6faf5' },
+  Amber:    { bg: '#1c1503', bar: '#2c2208', accent: '#fbbf24', text: '#fbf4e2' },
+  Slate:    { bg: '#0f172a', bar: '#1e293b', accent: '#94a3b8', text: '#eef2f7' }
 };
+
+// Built-in banner gradients (kept as lightweight extra options alongside the
+// bundled photos). Each renders to an SVG data URL that flows through the same
+// theme.img pipeline as an image, so no file is needed.
+const BANNER_DEFS = {
+  Dusk:  ['#2d1b4e', '#5b21b6', '#db2777'],
+  Ember: ['#7c2d12', '#c2410c', '#f59e0b'],
+  Tide:  ['#083344', '#0e7490', '#22d3ee'],
+  Steel: ['#0f172a', '#334155', '#64748b']
+};
+
+// Bundled photographic banners. name -> path relative to split.html.
+const IMAGE_BANNERS = {
+  Sunset:   'banners/sunset.png',
+  Ocean:    'banners/ocean.png',
+  Twilight: 'banners/twilight.png',
+  Forest:   'banners/forest.png',
+  Aurora:   'banners/aurora.png',
+  America:  'banners/america.png',
+  Bubbles:  'banners/bubbles.png'
+};
+
+// One-click full "looks": colours AND a coordinated banner together. `img` gives
+// a bundled image path; `banner` names a gradient in BANNER_DEFS instead.
+const LOOK_PRESETS = {
+  Bubbles:  { bg: '#272027', bar: '#3a303a', accent: '#cf9be0', text: '#eae6ea', img: 'banners/bubbles.png' },
+  Sunset:   { bg: '#1a0f0a', bar: '#2a1810', accent: '#f59e0b', text: '#fdf0e6', img: 'banners/sunset.png' },
+  Ocean:    { bg: '#04141f', bar: '#0a2434', accent: '#22d3ee', text: '#e6f6fb', img: 'banners/ocean.png' },
+  Twilight: { bg: '#14091f', bar: '#221033', accent: '#c084fc', text: '#f4eefc', img: 'banners/twilight.png' },
+  Woods:    { bg: '#0a1a0f', bar: '#122a1a', accent: '#4ade80', text: '#eafaf0', img: 'banners/forest.png' },
+  Aurora:   { bg: '#0a1020', bar: '#141c32', accent: '#8ab4f8', text: '#eef2fb', img: 'banners/aurora.png' },
+  America:  { bg: '#242c37', bar: '#364252', accent: '#6aa9ff', text: '#eaedf2', img: 'banners/america.png' },
+  Mono:     { bg: '#0f1115', bar: '#1b1f26', accent: '#94a3b8', text: '#e7ebf1', banner: 'Steel' }
+};
+
+// A look's banner is either its bundled image or its named gradient.
+function lookBanner(L) { return L.img || svgGradient(BANNER_DEFS[L.banner] || []); }
+
+function svgGradient(colors) {
+  const n = Math.max(1, colors.length - 1);
+  const stops = colors
+    .map((c, i) => `<stop offset='${Math.round((i / n) * 100)}%' stop-color='${c}'/>`)
+    .join('');
+  const svg =
+    "<svg xmlns='http://www.w3.org/2000/svg' width='1920' height='120'>" +
+    `<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='0'>${stops}</linearGradient></defs>` +
+    "<rect width='1920' height='120' fill='url(#g)'/></svg>";
+  return 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+function bannerCss(colors) { return 'linear-gradient(90deg,' + colors.join(',') + ')'; }
 let theme = { ...THEME_DEFAULT };
 
 function applyTheme(t) {
@@ -120,7 +179,9 @@ function applyTheme(t) {
   // --bg-img; the bars in the band are transparent windows onto it. Setting a var
   // rather than an element background is what lets one image span the toolbar, the
   // saved-sets bar and the pane URL bars seamlessly.
-  r.setProperty('--bg-img', t.img ? 'url(' + t.img + ')' : 'none');
+  // Quoted so data URLs (which contain parens/commas, e.g. SVG gradients) and
+  // relative file paths both parse cleanly inside url().
+  r.setProperty('--bg-img', t.img ? 'url("' + t.img + '")' : 'none');
   document.body.classList.toggle('has-bgimg', !!t.img);
   if (t.img) updateBanner();
   document.getElementById('tpDimRow').hidden = !t.img;
@@ -165,12 +226,53 @@ async function initTheme() {
   syncThemeInputs();
   applyTheme(theme);
 
+  // Colors: swatch sets the four colours, leaves the banner alone.
   const presets = document.getElementById('tpPresets');
   Object.entries(THEME_PRESETS).forEach(([name, p]) => {
     const b = document.createElement('button');
     b.type = 'button'; b.title = name; b.style.background = p.bg;
     b.addEventListener('click', () => { theme = { ...theme, ...p }; syncThemeInputs(); applyTheme(theme); saveTheme(); });
     presets.appendChild(b);
+  });
+
+  // Looks: one click sets colours AND a coordinated banner.
+  const looks = document.getElementById('tpLooks');
+  Object.entries(LOOK_PRESETS).forEach(([name, L]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tp-look'; b.textContent = name;
+    b.title = name + ' -- colours + banner';
+    b.style.background = L.img
+      ? 'center/cover no-repeat url("' + L.img + '")'
+      : bannerCss(BANNER_DEFS[L.banner] || [L.bar, L.accent]);
+    b.style.color = L.text;
+    b.addEventListener('click', () => {
+      theme = { ...theme, bg: L.bg, bar: L.bar, accent: L.accent, text: L.text, img: lookBanner(L) };
+      syncThemeInputs(); applyTheme(theme); saveTheme();
+    });
+    looks.appendChild(b);
+  });
+
+  // Banner: pick a built-in gradient (or None) without touching colours.
+  const banners = document.getElementById('tpBanners');
+  const none = document.createElement('button');
+  none.type = 'button'; none.className = 'tp-banner none'; none.title = 'No banner';
+  none.textContent = '∅';
+  none.addEventListener('click', () => { theme = { ...theme, img: '' }; applyTheme(theme); saveTheme(); });
+  banners.appendChild(none);
+  Object.entries(BANNER_DEFS).forEach(([name, cols]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tp-banner'; b.title = name;
+    b.style.background = bannerCss(cols);
+    b.addEventListener('click', () => { theme = { ...theme, img: svgGradient(cols) }; applyTheme(theme); saveTheme(); });
+    banners.appendChild(b);
+  });
+  // Bundled image banners.
+  Object.entries(IMAGE_BANNERS).forEach(([name, path]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tp-banner img'; b.title = name;
+    b.style.background = 'center/cover no-repeat url("' + path + '")';
+    b.addEventListener('click', () => { theme = { ...theme, img: path }; applyTheme(theme); saveTheme(); });
+    banners.appendChild(b);
   });
 
   themeBtn.addEventListener('click', (e) => {
@@ -201,9 +303,18 @@ async function initTheme() {
   document.getElementById('tpClearImg').addEventListener('click', () => {
     theme.img = ''; applyTheme(theme); saveTheme();
   });
-  document.getElementById('tpReset').addEventListener('click', () => {
-    theme = { ...THEME_DEFAULT }; syncThemeInputs(); applyTheme(theme); saveTheme();
+  document.getElementById('tpSuggest').addEventListener('change', (e) => {
+    theme.webSuggest = e.target.checked;
+    urlSuggest.setEnabled(theme.webSuggest);
+    saveTheme();
   });
+  document.getElementById('tpReset').addEventListener('click', () => {
+    theme = { ...THEME_DEFAULT }; syncThemeInputs(); applyTheme(theme);
+    urlSuggest.setEnabled(theme.webSuggest !== false); saveTheme();
+  });
+
+  // apply the persisted suggestions setting on load
+  urlSuggest.setEnabled(theme.webSuggest !== false);
 }
 
 function syncThemeInputs() {
@@ -213,6 +324,7 @@ function syncThemeInputs() {
   document.getElementById('tpText').value = theme.text;
   document.getElementById('tpDim').value = theme.dim ?? 35;
   document.getElementById('tpDimVal').textContent = (theme.dim ?? 35) + '%';
+  document.getElementById('tpSuggest').checked = theme.webSuggest !== false;
 }
 
 function saveTheme() {
@@ -260,9 +372,29 @@ const urlSuggest = (() => {
   let seq = 0;         // guards against out-of-order async results
   let timer = null;
 
+  let webOn = true;    // fetch live search suggestions (toggle in settings)
+
   const available = () => !!(chrome.history && chrome.history.search);
+  const setEnabled = (on) => { webOn = !!on; };
+  const isEnabled = () => webOn;
 
   function hide() { box.hidden = true; items = []; sel = -1; pane = null; }
+
+  // Live search suggestions from DuckDuckGo's autocomplete (the same engine the
+  // URL bar searches with). Cookie-less so it carries no identity, and it only
+  // runs when the setting is on -- every keystroke here is a request to DDG.
+  async function fetchSuggest(text) {
+    if (!webOn) return [];
+    try {
+      const r = await fetch(
+        'https://duckduckgo.com/ac/?q=' + encodeURIComponent(text) + '&kl=wt-wt',
+        { credentials: 'omit', cache: 'no-store' });
+      if (!r.ok) return [];
+      const data = await r.json();
+      return (Array.isArray(data) ? data : [])
+        .map((d) => (d && d.phrase) || '').filter(Boolean);
+    } catch (_) { return []; }   // offline / blocked -> history-only, silently
+  }
 
   function place(input) {
     const r = input.getBoundingClientRect();
@@ -282,12 +414,25 @@ const urlSuggest = (() => {
     return s;
   }
 
-  function render() {
-    box.textContent = '';
-    items.forEach((it, i) => {
-      const row = document.createElement('div');
-      row.className = 'us-row' + (i === sel ? ' sel' : '');
+  function row(it, i) {
+    const el = document.createElement('div');
+    el.className = 'us-row' + (i === sel ? ' sel' : '');
 
+    if (it.kind === 'search') {
+      const ic = document.createElement('span');
+      ic.className = 'us-fav us-search';
+      ic.textContent = '\u{1F50D}';                 // magnifier
+      const text = document.createElement('div');
+      text.className = 'us-text';
+      const t = document.createElement('div');
+      t.className = 'us-title';
+      t.textContent = it.phrase;
+      const u = document.createElement('div');
+      u.className = 'us-url';
+      u.textContent = 'Search DuckDuckGo';
+      text.append(t, u);
+      el.append(ic, text);
+    } else {
       const fav = document.createElement('img');
       fav.className = 'us-fav';
       try {
@@ -295,7 +440,6 @@ const urlSuggest = (() => {
           '/_favicon/?pageUrl=' + encodeURIComponent(it.url) + '&size=16');
       } catch (_) { /* no favicon */ }
       fav.addEventListener('error', () => { fav.style.visibility = 'hidden'; });
-
       const text = document.createElement('div');
       text.className = 'us-text';
       const t = document.createElement('div');
@@ -305,31 +449,57 @@ const urlSuggest = (() => {
       u.className = 'us-url';
       u.textContent = it.url;
       text.append(t, u);
+      el.append(fav, text);
+    }
+    // mousedown, not click: fires before the field's blur so the dropdown is
+    // still alive when we read the choice.
+    el.addEventListener('mousedown', (e) => { e.preventDefault(); accept(i); });
+    return el;
+  }
 
-      row.append(fav, text);
-      // mousedown, not click: fires before the field's blur so the dropdown is
-      // still alive when we read the choice.
-      row.addEventListener('mousedown', (e) => { e.preventDefault(); accept(i); });
-      box.appendChild(row);
-    });
+  function render() {
+    box.textContent = '';
+    items.forEach((it, i) => box.appendChild(row(it, i)));
     box.hidden = items.length === 0;
   }
 
   async function run(p) {
-    if (!available()) return;
     const text = p.urlInput.value.trim();
     if (text.length < 2) { hide(); return; }
     const my = ++seq;
-    let res = [];
-    try {
-      res = await chrome.history.search({ text, maxResults: 40, startTime: 0 });
-    } catch (_) { hide(); return; }
-    if (my !== seq) return;                 // superseded by a newer keystroke
     const q = text.toLowerCase();
-    const seen = new Set();
-    res = res.filter((h) => h.url && !seen.has(h.url) && seen.add(h.url));
-    res.sort((a, b) => score(b, q) - score(a, q));
-    items = res.slice(0, 8);
+
+    // History and live suggestions in parallel; either may be empty/unavailable.
+    const [hist, sugg] = await Promise.all([
+      available()
+        ? chrome.history.search({ text, maxResults: 40, startTime: 0 }).catch(() => [])
+        : Promise.resolve([]),
+      fetchSuggest(text),
+    ]);
+    if (my !== seq) return;                 // superseded by a newer keystroke
+
+    // Pages you've actually visited come first: dedup by URL, rank, keep the best.
+    const seenUrl = new Set();
+    const h = hist
+      .filter((x) => x.url && !seenUrl.has(x.url) && seenUrl.add(x.url))
+      .sort((a, b) => score(b, q) - score(a, q))
+      .slice(0, 5)
+      .map((x) => ({ kind: 'history', url: x.url, title: x.title || x.url }));
+
+    // Then search suggestions, minus the exact query and anything already shown.
+    const shown = new Set(h.map((x) => x.title.toLowerCase()));
+    shown.add(q);
+    const s = sugg
+      .filter((phrase) => {
+        const k = phrase.toLowerCase();
+        if (shown.has(k)) return false;
+        shown.add(k);
+        return true;
+      })
+      .slice(0, Math.max(0, 8 - h.length))
+      .map((phrase) => ({ kind: 'search', phrase }));
+
+    items = h.concat(s);
     sel = -1;
     pane = p;
     place(p.urlInput);
@@ -344,9 +514,11 @@ const urlSuggest = (() => {
   function accept(i) {
     if (i < 0 || i >= items.length || !pane) return;
     const p = pane;
-    const url = items[i].url;
+    const it = items[i];
     hide();
-    navigate(p, url);
+    // history -> the exact URL; search -> run it through normalizeUrl, which
+    // sends a real domain straight there and everything else to a DDG search.
+    navigate(p, it.kind === 'search' ? it.phrase : it.url);
   }
 
   // Returns true if it handled the key (caller should then not also navigate).
@@ -363,7 +535,7 @@ const urlSuggest = (() => {
   window.addEventListener('resize', hide);
   window.addEventListener('scroll', () => { if (!box.hidden && pane) place(pane.urlInput); }, true);
 
-  return { schedule, onKey, hide, available };
+  return { schedule, onKey, hide, available, setEnabled, isEnabled };
 })();
 
 function createPaneObj() {
@@ -386,7 +558,20 @@ function createPaneObj() {
       '<div class="empty"><div class="empty-inner">' +
         '<p class="empty-hint">Type a URL above, or pick an open tab:</p>' +
         '<div class="tablist"></div>' +
+        '<div class="empty-or">or</div>' +
+        '<button class="carousel-add" type="button">🖼 Show a carousel of my images</button>' +
+        '<p class="empty-sub">shown in every blank pane</p>' +
       '</div></div>' +
+      // outside .empty so it stays clickable even while the carousel is showing
+      '<input class="carousel-file" type="file" accept="image/*" multiple hidden>' +
+      '<div class="carousel" hidden>' +
+        '<img class="carousel-img" alt="" draggable="false">' +
+        '<button class="carousel-nav prev" type="button" title="Previous (←)">‹</button>' +
+        '<button class="carousel-nav next" type="button" title="Next (→)">›</button>' +
+        '<div class="carousel-count"></div>' +
+        '<button class="carousel-nav add-more" type="button" title="Add / replace images">＋</button>' +
+        '<button class="carousel-nav close" type="button" title="Close carousel">✕</button>' +
+      '</div>' +
     '</div>';
 
   // Name the frame: window.name survives navigation inside it, so the pane
@@ -415,6 +600,19 @@ function createPaneObj() {
   el.querySelector('.open').addEventListener('click', () => { if (pane.url) window.open(pane.url, '_blank'); });
   el.querySelector('.close').addEventListener('click', () => removePane(pane));
   el.querySelector('.tabs').addEventListener('click', () => toggleMenu(pane));
+
+  // Image carousel: the shared image set shown in every blank pane. Uploading or
+  // clearing from ANY pane updates all of them; prev/next steps only this pane.
+  pane.carIdx = 0;
+  const cfile = el.querySelector('.carousel-file');
+  el.querySelector('.carousel-add').addEventListener('click', () => cfile.click());
+  el.querySelector('.carousel .add-more').addEventListener('click', () => cfile.click());
+  cfile.addEventListener('change', () => { setCarouselFromFiles(cfile.files); cfile.value = ''; });
+  el.querySelector('.carousel .prev').addEventListener('click', () => stepCarousel(pane, -1));
+  el.querySelector('.carousel .next').addEventListener('click', () => stepCarousel(pane, 1));
+  el.querySelector('.carousel-img').addEventListener('click', () => stepCarousel(pane, 1));
+  el.querySelector('.carousel .close').addEventListener('click', () => clearCarousel());
+
   pane.urlInput.addEventListener('input', () => urlSuggest.schedule(pane));
   pane.urlInput.addEventListener('focus', () => urlSuggest.schedule(pane));
   // Delay the hide so a mousedown on a suggestion is processed first.
@@ -428,6 +626,7 @@ function createPaneObj() {
   container.appendChild(el);
   panes.push(pane);
   renderTabList(pane.overlayList, pane);
+  renderPaneCarousel(pane);   // a fresh blank pane shows the shared carousel if set
   return pane;
 }
 
@@ -445,7 +644,7 @@ function clearPane(pane) {
   pane.url = '';
   pane.urlInput.value = '';
   pane.iframe.src = 'about:blank';
-  pane.wrap.classList.add('empty-state');
+  renderPaneCarousel(pane);   // show the shared carousel if any, else the empty prompt
   renderTabList(pane.overlayList, pane);
   save();
 }
@@ -456,6 +655,7 @@ async function navigate(pane, raw) {
   await framingReady;
   pane.url = url;
   pane.urlInput.value = url;
+  renderPaneCarousel(pane);              // a loaded URL hides the shared carousel here
   pane.wrap.classList.remove('empty-state');
   pane.iframe.src = url;
   closeMenus();
@@ -473,6 +673,79 @@ function reload(pane) {
 function paneNav(pane, dir) {
   if (!pane.iframe || !pane.iframe.contentWindow) return;
   try { pane.iframe.contentWindow.postMessage({ __splitNav: dir }, '*'); } catch (_) { /* frame gone */ }
+}
+
+// ---- image carousel --------------------------------------------------------
+// One shared set of images that every BLANK pane displays -- a backdrop for panes
+// with no page loaded. The files never leave the machine: each is re-encoded to a
+// shrunk JPEG data URL and kept in chrome.storage.local, so the set persists and
+// any pane that later goes blank picks it up. object-fit:cover in the CSS makes
+// each image fill its pane and crop the overflow (a wide image loses its sides)
+// rather than distort.
+
+function saveCarousel() {
+  try { chrome.storage.local.set({ splitCarousel: carouselImgs }); } catch (_) { /* ignore */ }
+}
+
+// Replace the shared set from picked files, then show it in every blank pane.
+async function setCarouselFromFiles(fileList) {
+  const files = Array.from(fileList || [])
+    .filter((f) => f.type.startsWith('image/'))
+    .slice(0, 24);                     // bound how much we persist
+  if (!files.length) return;
+  const urls = [];
+  for (const f of files) {
+    try { urls.push(await shrinkImage(f, 1920, 1200)); } catch (_) { /* skip bad file */ }
+  }
+  if (!urls.length) return;
+  carouselImgs = urls;
+  saveCarousel();
+  refreshAllCarousels(true);
+}
+
+function clearCarousel() {
+  carouselImgs = [];
+  saveCarousel();
+  refreshAllCarousels();
+}
+
+// Re-render the carousel in every pane. `reset` staggers each pane's start index
+// so a grid of blank panes shows a spread of the images rather than all the same.
+function refreshAllCarousels(reset) {
+  panes.forEach((p, i) => {
+    if (reset) p.carIdx = carouselImgs.length ? i % carouselImgs.length : 0;
+    renderPaneCarousel(p);
+  });
+}
+
+function renderPaneCarousel(pane) {
+  const car = pane.el.querySelector('.carousel');
+  const has = carouselImgs.length > 0;
+  if (pane.url || !has) {                       // a loaded page, or nothing to show
+    car.hidden = true;
+    pane.el.querySelector('.carousel-img').removeAttribute('src');
+    pane.wrap.classList.remove('carousel-state');
+    if (!pane.url) pane.wrap.classList.add('empty-state');
+    return;
+  }
+  const n = carouselImgs.length;
+  const idx = (((pane.carIdx || 0) % n) + n) % n;
+  pane.carIdx = idx;
+  pane.wrap.classList.remove('empty-state');
+  pane.wrap.classList.add('carousel-state');
+  car.hidden = false;
+  pane.el.querySelector('.carousel-img').src = carouselImgs[idx];
+  pane.el.querySelector('.carousel-count').textContent = (idx + 1) + ' / ' + n;
+  const multi = n > 1;
+  car.querySelector('.prev').style.display = multi ? '' : 'none';
+  car.querySelector('.next').style.display = multi ? '' : 'none';
+}
+
+function stepCarousel(pane, d) {
+  const n = carouselImgs.length;
+  if (n < 2) return;
+  pane.carIdx = (((pane.carIdx + d) % n) + n) % n;
+  renderPaneCarousel(pane);
 }
 
 function fillFirstEmpty(url) {
@@ -1216,6 +1489,13 @@ function init() {
   } catch (e) {
     console.error('[Split Screen] restore failed; continuing with an empty layout', e);
   }
+  // Load the shared blank-pane carousel and paint it into whatever panes are blank.
+  chrome.storage.local.get('splitCarousel').then((o) => {
+    if (Array.isArray(o.splitCarousel) && o.splitCarousel.length) {
+      carouselImgs = o.splitCarousel;
+      refreshAllCarousels(true);
+    }
+  }).catch(() => { /* ignore */ });
 }
 
 init();
