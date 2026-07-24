@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Split Screen</title>
+  <link id="favicon" rel="icon" href="icons/icon32.png">
+  <link rel="stylesheet" href="split.css">
+</head>
+<body>
+  <!-- The toolbar and the saved-sets bar together form the header band. Wrapping
+       them lets an optional background image sit behind both as one banner. -->
+  <div class="header">
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon32.png" alt="" width="20" height="20">
+      <span>Split Screen</span>
+    </div>
+
+    <div class="tb-group">
+      <button id="gridBtn" class="tbtn" title="Choose a grid layout">▦ Grid: <span id="gridLabel">2 × 1</span></button>
+      <button id="addPane" class="tbtn" title="Add a pane">+ Pane</button>
+      <div id="gridPicker" class="grid-picker" hidden></div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <input id="setIcon" class="icon-input" type="text" maxlength="4" spellcheck="false"
+           placeholder="🙂" title="Give this set its own tab icon -- paste any emoji (blank = use the first pane's favicon)">
+    <input id="setName" class="name-input" type="text" spellcheck="false" placeholder="Name this set">
+    <button id="saveSet" class="tbtn" title="Pin this layout to the bar below">★ Save</button>
+    <button id="copyLink" class="tbtn" title="Copy a bookmarkable link to this set">🔖 Copy link</button>
+    <button id="themeBtn" class="tbtn" title="Settings -- colours and background">⚙</button>
+    <div id="themePanel" class="theme-panel" hidden>
+      <div class="tp-row tp-looks-row"><span>Looks</span><span id="tpLooks" class="tp-looks"></span></div>
+      <div class="tp-row"><span>Colors</span><span id="tpPresets" class="tp-presets"></span></div>
+      <div class="tp-row tp-banner-row"><span>Banner</span><span id="tpBanners" class="tp-banners"></span></div>
+      <div class="tp-row"><label for="tpBg">Background</label><input id="tpBg" type="color" value="#1b1e24"></div>
+      <div class="tp-row"><label for="tpBar">Toolbar</label><input id="tpBar" type="color" value="#23272f"></div>
+      <div class="tp-row"><label for="tpAccent">Accent</label><input id="tpAccent" type="color" value="#14b8a6"></div>
+      <div class="tp-row"><label for="tpText">Text</label><input id="tpText" type="color" value="#e7ebf1"></div>
+      <div class="tp-row"><label for="tpImg">Image</label><input id="tpImg" type="file" accept="image/*"></div>
+      <div class="tp-hint" id="tpImgHint"></div>
+      <div class="tp-row" id="tpDimRow" hidden><label for="tpDim">Dim</label>
+        <input id="tpDim" type="range" min="0" max="85" value="35"><span id="tpDimVal">35%</span></div>
+      <div class="tp-row tp-actions">
+        <button id="tpClearImg" class="tbtn" type="button" hidden>Remove image</button>
+        <button id="tpReset" class="tbtn" type="button">Reset</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="bookmarks" id="bookmarks"></div>
+  </div><!-- .header -->
+
+  <div class="panes" id="panes"></div>
+
+  <script src="split.js"></script>
+</body>
+</html>

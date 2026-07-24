@@ -1,0 +1,446 @@
+:root {
+  --bg: #1b1e24;
+  --bar: #23272f;
+  --line: #333a45;
+  --text: #e7ebf1;
+  --muted: #9aa4b2;
+  --accent: #14b8a6;
+  --accent-hi: #2dd4bf;
+  --divider: #2c313b;
+  --divider-hi: #14b8a6;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  overflow: hidden;
+}
+
+body { display: flex; flex-direction: column; }
+
+.topbar {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+
+.tb-group { position: relative; display: flex; gap: 8px; }
+.spacer { flex: 1; }
+
+.tbtn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #2c313b;
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tbtn:hover:not(:disabled) { background: #353b47; border-color: #47505e; }
+.tbtn:disabled { opacity: .4; cursor: default; }
+
+.name-input {
+  height: 30px;
+  width: 170px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #171b21;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+.name-input:focus { border-color: var(--accent); }
+
+/* grid-size picker */
+.grid-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  padding: 10px;
+  background: var(--bar);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+}
+.grid-picker[hidden] { display: none; }
+.gp-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 20px);
+  grid-auto-rows: 20px;
+  gap: 4px;
+}
+.gp-cell {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #1a1f27;
+  cursor: pointer;
+}
+.gp-cell.on { background: var(--accent); border-color: var(--accent-hi); }
+.gp-label { margin-top: 8px; text-align: center; color: var(--muted); font-size: 12px; }
+
+/* saved-sets bar (in-extension bookmarks) */
+.bookmarks {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #1f232b;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.bookmarks::-webkit-scrollbar { height: 6px; }
+.bookmarks::-webkit-scrollbar-thumb { background: #3a414d; border-radius: 3px; }
+.bm-label { flex: 0 0 auto; color: var(--muted); font-size: 11px; margin-right: 2px; }
+.bm-empty { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
+.bm-chip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #262b34;
+  cursor: pointer;
+  font-size: 12px;
+}
+.bm-chip:hover { background: #2f3540; }
+.bm-chip.active { border-color: var(--accent-hi); background: rgba(20, 184, 166, .16); }
+.bm-chip img { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 auto; }
+.bm-chip .bm-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.bm-chip .x { flex: 0 0 auto; opacity: .45; font-size: 11px; padding: 0 2px; }
+.bm-chip .x:hover { opacity: 1; color: #ff6b6b; }
+
+/* the grid of panes */
+.panes {
+  flex: 1;
+  display: grid;
+  min-height: 0;
+  min-width: 0;
+}
+
+.pane {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #101216;
+  overflow: hidden;
+}
+
+.pane-bar {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+}
+
+.pane-bar .url {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #171b21;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+.pane-bar .url:focus { border-color: var(--accent); }
+
+.icon {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: #2c313b;
+  color: var(--text);
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.icon:hover:not(:disabled) { background: #353b47; }
+.icon:disabled { opacity: .35; cursor: default; }
+.icon.close:hover:not(:disabled) { background: #5a2a2a; border-color: #7a3a3a; }
+
+.frame-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #0c0e11;
+}
+.frame-wrap iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #ffffff;
+}
+.frame-wrap .empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--muted);
+  background: #0c0e11;
+}
+.frame-wrap:not(.empty-state) .empty { display: none; }
+
+.empty-inner {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+}
+.empty-hint { margin: 0 0 8px; }
+.empty-inner .tablist {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0f1318;
+}
+.empty-or { color: var(--muted); font-size: 12px; margin: 12px 0 4px; text-align: center; }
+.empty-sub { color: var(--muted); font-size: 11px; margin: 6px 0 0; text-align: center; opacity: .8; }
+.carousel-add {
+  align-self: center; padding: 8px 14px; border: 0; border-radius: 8px;
+  background: var(--accent); color: #04120c; font-weight: 600; cursor: pointer;
+}
+.carousel-add:hover { filter: brightness(1.08); }
+
+/* ---- image carousel ----
+   A pane showing local images instead of a web page. object-fit: cover makes each
+   image FILL the pane and crop the overflow (the sides of a wide image) rather
+   than letterbox or distort it. */
+.carousel { position: absolute; inset: 0; z-index: 3; background: #0c0e11; display: grid; }
+.frame-wrap.carousel-state iframe,
+.frame-wrap.carousel-state .empty { display: none; }
+.carousel[hidden] { display: none; }
+.carousel-img {
+  width: 100%; height: 100%; object-fit: cover; object-position: center;
+  cursor: pointer; user-select: none;
+}
+.carousel-nav {
+  position: absolute; border: 1px solid var(--line); background: rgba(18,22,29,.62);
+  color: #fff; border-radius: 8px; cursor: pointer; display: grid; place-items: center;
+  backdrop-filter: blur(3px);
+}
+.carousel-nav:hover { background: rgba(40,46,58,.9); }
+.carousel-nav.prev, .carousel-nav.next { top: 50%; transform: translateY(-50%); width: 34px; height: 46px; font-size: 20px; }
+.carousel-nav.prev { left: 10px; }
+.carousel-nav.next { right: 10px; }
+.carousel-nav.close { top: 8px; right: 8px; width: 28px; height: 28px; font-size: 13px; }
+.carousel-nav.add-more { top: 8px; right: 42px; width: 28px; height: 28px; font-size: 15px; }
+.carousel-count {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,.6); color: #fff; font-size: 12px; padding: 3px 11px; border-radius: 12px;
+}
+
+/* open-tabs picker */
+.tab-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  max-height: 340px;
+  overflow: auto;
+  z-index: 20;
+  padding: 6px;
+  background: var(--bar);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+}
+.tab-menu[hidden] { display: none; }
+
+.tablist { display: flex; flex-direction: column; }
+.tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.tab-row:hover { background: #2c313b; }
+.tab-row .fav { flex: 0 0 auto; border-radius: 3px; }
+.tab-text { display: flex; flex-direction: column; min-width: 0; }
+.tab-title { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab-url { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab-empty { padding: 10px; color: var(--muted); font-size: 12px; }
+
+/* draggable grid gutters */
+.gutter { z-index: 5; background: var(--divider); }
+.gutter:hover, .gutter:active { background: var(--divider-hi); }
+.gutter.col { cursor: col-resize; }
+.gutter.row { cursor: row-resize; }
+
+body.dragging { user-select: none; }
+body.dragging iframe { pointer-events: none; }
+body.dragging.col-resize { cursor: col-resize; }
+body.dragging.row-resize { cursor: row-resize; }
+
+/* ---- drag a pane to reposition it ---- */
+.icon.grip { cursor: grab; letter-spacing: -1px; }
+.icon.grip:active { cursor: grabbing; }
+
+/* While a pane is being dragged, stop the iframes from eating dragover/drop --
+   otherwise a pane with a page loaded can never be used as a drop target. */
+.panes.reordering iframe { pointer-events: none; }
+
+.pane.drag-source { opacity: .5; }
+.pane.drop-target { outline: 2px solid var(--accent, #4c8bf5); outline-offset: -2px; }
+.pane.drop-target .pane-bar { background: #2b3a55; }
+
+/* ---- per-set tab icon ---- */
+.icon-input {
+  width: 46px;
+  text-align: center;
+  font-size: 15px;
+  padding: 5px 4px;
+  margin-right: 6px;
+  background: #23272f;
+  color: #e7ebf1;
+  border: 1px solid #333a45;
+  border-radius: 8px;
+}
+.icon-input:focus { outline: none; border-color: var(--accent); }
+
+/* ---- appearance panel ---- */
+.theme-panel {
+  position: absolute; top: 100%; right: 8px; margin-top: 6px; z-index: 60;
+  background: var(--bar); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px; width: 268px; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+.tp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 12px; color: var(--muted); }
+.tp-row label, .tp-row > span:first-child { flex: 0 0 82px; }
+.tp-row input[type=color] { width: 40px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; }
+.tp-row input[type=file] { flex: 1; font-size: 11px; color: var(--muted); }
+.tp-row input[type=range] { flex: 1; }
+.tp-hint { font-size: 11px; color: var(--muted); margin: -3px 0 8px; line-height: 1.4; }
+.tp-hint b { color: var(--text); font-weight: 600; }
+.tp-actions { justify-content: flex-end; gap: 6px; margin-bottom: 0; }
+.tp-presets { display: flex; gap: 5px; flex-wrap: wrap; }
+.tp-presets button {
+  width: 20px; height: 20px; border-radius: 5px; border: 1px solid rgba(255,255,255,.22);
+  cursor: pointer; padding: 0;
+}
+/* Looks: named pill buttons, each showing its banner gradient behind the name. */
+.tp-looks { display: flex; gap: 5px; flex-wrap: wrap; }
+.tp-look {
+  padding: 3px 9px; border-radius: 12px; border: 1px solid rgba(255,255,255,.22);
+  cursor: pointer; font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+.tp-look:hover { filter: brightness(1.1); }
+/* Banner: gradient chips + a "none" chip. */
+.tp-banners { display: flex; gap: 5px; flex-wrap: wrap; }
+.tp-banner {
+  width: 30px; height: 18px; border-radius: 4px; border: 1px solid rgba(255,255,255,.22);
+  cursor: pointer; padding: 0;
+}
+.tp-banner.none {
+  display: grid; place-items: center; width: 18px; background: var(--panel2, #1e222b);
+  color: var(--muted); font-size: 11px;
+}
+.tp-looks-row > span:first-child,
+.tp-banner-row > span:first-child { align-self: flex-start; padding-top: 3px; }
+
+/* ---- optional background image: a top banner ----
+   The image spans the whole top band -- toolbar, saved-sets bar, AND the pane URL
+   bars beneath them -- as ONE continuous picture, not behind the pages (a loaded
+   pane is an opaque cross-origin iframe, so an image there is invisible anyway).
+
+   How it stays seamless: rather than clip the image to each bar, we paint it ONCE
+   as a viewport-fixed strip (::before) behind everything, then make every bar in
+   the band transparent so they are windows onto that single strip. --bg-img and
+   --banner-h are set from JS (updateBanner measures header + one pane-bar).
+   --banner-h can safely run a little tall: any overshoot falls behind the opaque
+   iframes/panes below the URL bars, so it is never seen. */
+.header { position: relative; flex: 0 0 auto; }
+
+body.has-bgimg::before {
+  content: ''; position: fixed; top: 0; left: 0; right: 0;
+  height: var(--banner-h, 132px);
+  /* scrim composited OVER the image in the same layer, so toolbar/URL text stays
+     legible on any picture. Strength is the Dim slider (--dim). */
+  background:
+    linear-gradient(rgba(0,0,0,var(--dim,.35)), rgba(0,0,0,var(--dim,.35))),
+    var(--bg-img, none);
+  background-size: 100% var(--banner-h, 132px);
+  background-position: top center;
+  background-repeat: no-repeat;
+  z-index: 0; pointer-events: none;
+}
+/* Every bar in the band goes transparent so the fixed strip shows through, and
+   the panes/frames drop their opaque fills for the strip's height. The header
+   also out-ranks the panes: it holds the theme panel (z-index 60), and giving an
+   ancestor a z-index makes it a stacking context that would trap that panel --
+   with the panes at a matching level and later in the DOM they would paint over
+   the "open" panel and the settings gear would look dead. Header above panes
+   keeps it reachable; the ::before strip sits below both at z-index 0. */
+body.has-bgimg .header { z-index: 5; }
+/* Topbar OUT-RANKS the bookmarks bar (not merely equal to it). The toolbar's
+   flyouts -- the grid picker and the theme panel -- are absolutely-positioned
+   children of the topbar. Give the topbar a z-index and it becomes a stacking
+   context that traps them at its own level; if the bookmarks bar (a later
+   sibling) shares that level it paints over those flyouts. A higher topbar keeps
+   them on top. Both still sit above the ::before banner (z-index 0). */
+body.has-bgimg .topbar { position: relative; z-index: 6; background: transparent; }
+body.has-bgimg .bookmarks { position: relative; z-index: 1; background: transparent; }
+body.has-bgimg .panes { position: relative; z-index: 1; }
+body.has-bgimg .pane { background: transparent; }
+body.has-bgimg .pane-bar { background: transparent; }
+
+/* The URL field and the pane buttons are opaque by default, which would punch
+   solid boxes through the banner. Make them semi-transparent so the picture tints
+   through the whole URL bar -- but keep enough dark fill (and bump it on focus)
+   that the URL text stays readable. */
+body.has-bgimg .pane-bar .url { background: rgba(15, 18, 24, .42); }
+body.has-bgimg .pane-bar .url:focus { background: rgba(15, 18, 24, .72); }
+body.has-bgimg .pane-bar .icon { background: rgba(44, 49, 59, .42); }
+body.has-bgimg .pane-bar .icon:hover:not(:disabled) { background: rgba(53, 59, 71, .7); }
