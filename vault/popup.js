@@ -4,8 +4,11 @@
 const AUTOLOCK_MIN = 15;
 const VC = self.VaultCrypto;
 
-// Opened as a real tab (for importing) rather than as the action popup.
-const IS_TAB = new URLSearchParams(location.search).get('tab') === '1';
+// Opened as a real tab -- for importing (?tab=1) or a context-menu quick-add
+// (?add=1) -- rather than as the action popup.
+const _params = new URLSearchParams(location.search);
+const IS_ADD = _params.get('add') === '1';
+const IS_TAB = _params.get('tab') === '1' || IS_ADD;
 
 // ---- in-memory state (this popup instance only) ---------------------------
 let _key = null;       // AES-GCM CryptoKey while unlocked
@@ -94,6 +97,23 @@ function renderUnlocked() {
   $('search').value = '';
   renderList('');
   $('search').focus();
+  if (IS_ADD) maybeOpenPendingAdd();  // came from the right-click quick-add
+}
+
+// A context-menu click stashed a half-filled entry in storage.session; open the
+// add form pre-filled with it. Consumed once, then removed.
+async function maybeOpenPendingAdd() {
+  const { pendingAdd } = await getSession('pendingAdd');
+  if (!pendingAdd) return;
+  await chrome.storage.session.remove('pendingAdd');
+  openDetail(null);
+  $('fName').value = pendingAdd.name || '';
+  $('fUrl').value = pendingAdd.url || '';
+  $('fUser').value = pendingAdd.username || '';
+  $('fPass').value = pendingAdd.password || '';
+  $('fNote').value = pendingAdd.note || '';
+  if (pendingAdd.password) $('fPass').type = 'text';  // reveal a generated/pasted secret
+  $('fUser').focus();
 }
 
 function faviconLetter(name) {
@@ -193,6 +213,9 @@ async function saveEntry(ev) {
   closeDetail();
   renderList($('search').value);
   toast('Saved');
+  // A context-menu quick-add opened this tab just to capture one entry -- once
+  // saved, close it and return the user to the page they were on.
+  if (IS_ADD) setTimeout(() => window.close(), 500);
 }
 
 async function deleteEntry() {
@@ -441,6 +464,11 @@ function wire() {
   $('revealBtn').addEventListener('click', () => {
     const p = $('fPass');
     p.type = p.type === 'password' ? 'text' : 'password';
+  });
+  $('genBtn').addEventListener('click', () => {
+    $('fPass').value = VC.generatePassword(20);
+    $('fPass').type = 'text';     // reveal it so you can see/copy what was made
+    toast('Strong password generated');
   });
   $('copyUser').addEventListener('click', () => copyText($('fUser').value, 'Username copied'));
   $('copyPass').addEventListener('click', () => copyText($('fPass').value, 'Password copied'));

@@ -20,10 +20,25 @@ vault never leaves the machine.
   `chrome.storage.session` -- in memory only, wiped when the browser closes -- so
   the popup can reopen without re-deriving. An idle **auto-lock** (15 min, via
   `chrome.alarms`) clears it; **Lock** does so immediately.
-- **Least privilege.** Permissions are `storage`, `clipboardWrite`, `alarms`.
-  **No host permissions, no content scripts, no network.** The extension cannot
-  read the pages you visit, and nothing it holds can be sent anywhere.
+- **Least privilege.** Permissions are `storage`, `clipboardWrite`, `alarms`,
+  `contextMenus`. **No host permissions, no content scripts, no network.** The
+  extension cannot read the pages you visit, and nothing it holds can be sent
+  anywhere.
 - **All standard WebCrypto.** No hand-rolled crypto anywhere.
+
+## Right-click quick-add
+
+Right-click any page for **Save a login for this site**, **New Vault entry with a
+generated password**, or (on selected text) **Save selection as a password**. Vault
+opens its add form pre-filled and you finish and save it.
+
+This does **not** weaken the model above. A context-menu click hands an extension
+only the page's URL and any text you deliberately selected -- never the page's
+contents -- so Vault still can't read the sites you visit, and it still has no
+content scripts or host access. It also can't *fill* a site's password field for
+you (that would require exactly that access); you copy the password in and paste it
+yourself. There's a **🎲 generate** button in the add form too (20-char, from an
+unambiguous alphabet).
 
 ## Import your Brave/Chrome passwords
 
@@ -78,20 +93,16 @@ check and is rejected, exactly like unlock.
 ```
 manifest.json     MV3, minimal permissions
 popup.html/css/js the whole UI + controller (setup / unlock / vault)
-lib/crypto.js     PBKDF2 + AES-GCM helpers (WebCrypto only)
+lib/crypto.js     PBKDF2 + AES-GCM helpers + password generator (WebCrypto only)
 lib/csv.js        RFC-4180 CSV parser + password-export column mapping
-background.js     auto-lock alarm (clears the in-memory session key)
+background.js     auto-lock alarm + the right-click quick-add menu
 icons/            padlock
 ```
 
 ## Limits / possible v2
 
-- **No autofill yet.** v1 is a vault (view + copy). Autofill needs a content
-  script and host access -- real added attack surface -- so it's a deliberate,
-  separate v2, not a default.
-- **No password generator** in v1 (easy add).
-- **Export / encrypted backup** of the vault isn't exposed yet; the encrypted
-  blob lives in `chrome.storage.local`. A "download encrypted backup" button is a
-  natural v2.
+- **No autofill.** Vault never reads or fills a site's fields. Autofill needs a
+  content script and host access -- real added attack surface, and the opposite of
+  "cannot read your pages" -- so it stays out by design, not as a TODO.
 - **Clipboard auto-clear** (wipe a copied password after ~20s) is a planned v2
   hardening.

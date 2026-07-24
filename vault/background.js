@@ -1,3 +1,43 @@
+importScripts('lib/crypto.js');
+const VC = self.VaultCrypto;
+
+// ---- context-menu quick-add ------------------------------------------------
+// Start a Vault entry from the page you're on, WITHOUT any host permission. A
+// context-menu click hands an extension only the page URL and the text you
+// selected -- never the page's contents -- so this reads nothing about the sites
+// you visit. You still type or paste the secret yourself. Filling a site's field
+// would require content-script/host access, which is the line Vault won't cross.
+const MENUS = [
+  { id: 'vault-save', title: 'Save a login for this site to Vault',        contexts: ['page', 'editable'] },
+  { id: 'vault-gen',  title: 'New Vault entry with a generated password',  contexts: ['page', 'editable'] },
+  { id: 'vault-sel',  title: 'Save selection to Vault as a password',      contexts: ['selection'] },
+];
+
+function buildMenus() {
+  chrome.contextMenus.removeAll(() => {
+    for (const m of MENUS) chrome.contextMenus.create(m);
+  });
+}
+chrome.runtime.onInstalled.addListener(buildMenus);
+chrome.runtime.onStartup.addListener(buildMenus);
+
+function nameFromUrl(url) {
+  try { return new URL(url).hostname.replace(/^www\./, '') || 'New login'; }
+  catch (_) { return 'New login'; }
+}
+
+chrome.contextMenus.onClicked.addListener(async (info) => {
+  if (!info.menuItemId || String(info.menuItemId).indexOf('vault-') !== 0) return;
+  const url = info.pageUrl || '';
+  const pending = { url, name: nameFromUrl(url), username: '', password: '', note: '' };
+  if (info.menuItemId === 'vault-gen') pending.password = VC.generatePassword(20);
+  if (info.menuItemId === 'vault-sel') pending.password = (info.selectionText || '').trim();
+  // Passed via storage.session (in-memory), NOT the tab URL -- a secret never
+  // belongs in a URL. The tab opens with only ?add=1.
+  await chrome.storage.session.set({ pendingAdd: pending });
+  chrome.tabs.create({ url: chrome.runtime.getURL('popup.html?add=1'), active: true });
+});
+
 // Auto-lock. The popup re-arms this alarm on every unlock/interaction; if the
 // vault sits idle past the timeout, we wipe the in-memory session key so the next
 // open requires the master password again. storage.session is already cleared when

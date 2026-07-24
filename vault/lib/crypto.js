@@ -77,8 +77,20 @@
     return JSON.parse(dec.decode(pt));
   }
 
+  // Strong random password. Unambiguous alphabet (no I/l/O/0/1). The modulo bias
+  // over a 68-symbol set drawn from 2^32 is astronomically small, so no rejection
+  // sampling needed.
+  function generatePassword(len) {
+    len = len || 20;
+    const set = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*-_=+?';
+    const r = crypto.getRandomValues(new Uint32Array(len));
+    let s = '';
+    for (let i = 0; i < len; i++) s += set[r[i] % set.length];
+    return s;
+  }
+
   self.VaultCrypto = {
     ITERATIONS, b64, ub64, randomSalt,
-    deriveKey, exportKey, importKey, encryptObj, decryptObj,
+    deriveKey, exportKey, importKey, encryptObj, decryptObj, generatePassword,
   };
 })();
