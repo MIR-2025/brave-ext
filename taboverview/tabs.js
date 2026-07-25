@@ -133,9 +133,22 @@ function favImg(cls, t) {
   const img = document.createElement('img');
   img.className = cls;
   img.referrerPolicy = 'no-referrer';
-  img.onerror = () => { img.style.visibility = 'hidden'; };
-  if (t.favIconUrl && /^(https?|data):/i.test(t.favIconUrl)) img.src = t.favIconUrl;
-  else img.style.visibility = 'hidden';
+  // Chrome's own cached favicon (via the "favicon" permission) -- same-origin, so no
+  // CORS/referrer failures, and it returns a placeholder globe even when a site has
+  // no icon. Fall back to the tab's declared favIconUrl, then hide only if both fail.
+  const declared = (t.favIconUrl && /^(https?|data):/i.test(t.favIconUrl)) ? t.favIconUrl : '';
+  let triedDeclared = false;
+  img.onerror = () => {
+    if (declared && !triedDeclared) { triedDeclared = true; img.src = declared; }
+    else { img.style.visibility = 'hidden'; }
+  };
+  if (t.url) {
+    img.src = chrome.runtime.getURL('/_favicon/?pageUrl=' + encodeURIComponent(t.url) + '&size=64');
+  } else if (declared) {
+    triedDeclared = true; img.src = declared;
+  } else {
+    img.style.visibility = 'hidden';
+  }
   return img;
 }
 
