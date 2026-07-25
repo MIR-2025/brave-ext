@@ -66,9 +66,9 @@ addBtn.addEventListener('click', () => {
 });
 gridBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleGridPicker(); });
 document.getElementById('newGrid').addEventListener('click', () => {
-  // A fresh grid in its own tab -- clean split.html, no ?set=, so it opens as a new
-  // 2-pane workspace without disturbing this one.
-  const url = chrome.runtime.getURL('split.html');
+  // A fresh grid in its own tab. ?new=1 tells restore() to start with a blank 2x2
+  // rather than reopening the last saved layout.
+  const url = chrome.runtime.getURL('split.html?new=1');
   try { chrome.tabs.create({ url }); } catch (_) { window.open(url, '_blank'); }
 });
 nameInput.addEventListener('input', () => { setName = nameInput.value; save(); refreshAllBookmarks(); });
@@ -1529,6 +1529,7 @@ async function restore() {
   const setParam = params.get('set');
   const first = params.get('first') || '';   // page you launched from
   const add = params.get('add') || '';        // page sent from the right-click menu
+  const fresh = params.get('new') === '1';    // ＋ New grid: start blank, ignore last layout
 
   let loaded = false;
   if (setParam) {
@@ -1536,15 +1537,17 @@ async function restore() {
   }
   if (!loaded) {
     let snap = null;
-    try { snap = (await chrome.storage.local.get('splitState')).splitState; } catch (_) { /* ignore */ }
+    // ＋ New grid explicitly wants a blank grid, so don't reopen the saved layout.
+    if (!fresh) { try { snap = (await chrome.storage.local.get('splitState')).splitState; } catch (_) { /* ignore */ } }
     if (snap && Array.isArray(snap.u) && snap.u.length) {
       buildFromSnapshot(snap, first);
     } else {
       cols = 2;
-      createPaneObj();
-      createPaneObj();
+      // ＋ New grid opens a blank 2x2; the plain default (first ever launch) is 2 panes.
+      const paneN = fresh ? 4 : 2;
+      for (let i = 0; i < paneN; i++) createPaneObj();
       colSizes = [1, 1];
-      rowSizes = [1];
+      rowSizes = fresh ? [1, 1] : [1];
       relayout();
       if (first) navigate(panes[0], first);
     }
