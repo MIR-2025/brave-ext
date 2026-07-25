@@ -32,17 +32,9 @@
   window.addEventListener('popstate', report);
   window.addEventListener('hashchange', report);
 
-  // Back / forward. The parent page cannot move a cross-origin frame through its
-  // history, but this script runs INSIDE the frame, so it can. Split Screen posts
-  // {__splitNav: -1 | +1}; we step the frame's own session history by that much.
-  // A no-op at the ends -- the browser has no cross-origin "can I go back?" query,
-  // so the buttons stay enabled and simply do nothing when there's nowhere to go.
-  window.addEventListener('message', function (e) {
-    if (e.source !== window.parent) return;
-    var d = e.data;
-    if (!d || typeof d.__splitNav !== 'number') return;
-    try { history.go(d.__splitNav); } catch (_) { /* navigation blocked */ }
-  });
+  // (Back / forward is handled entirely in the parent page now -- it keeps a
+  // per-pane history stack from these URL reports -- so this frame no longer needs
+  // to act on nav commands.)
 
   // Single-page apps navigate with history.pushState in the page's own JS world,
   // which a content script can't hook from its isolated world. A cheap string

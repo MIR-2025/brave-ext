@@ -647,6 +647,9 @@ function createPaneObj() {
   el.querySelector('.tabs').addEventListener('click', () => toggleMenu(pane));
   el.querySelector('.star').addEventListener('click', () => toggleBookmark(pane));
 
+  // Parent-tracked back/forward history for this pane (see recordNav / paneNav).
+  pane.nav = { stack: [], pos: -1 };
+
   // Image carousel: the shared image set shown in every blank pane. Uploading or
   // clearing from ANY pane updates all of them; prev/next steps only this pane.
   pane.carIdx = 0;
@@ -675,6 +678,7 @@ function createPaneObj() {
   renderPaneCarousel(pane);   // a fresh blank pane shows the shared carousel if set
   renderPaneBookmarks(pane);  // ...and the current workspace's bookmarks
   updatePaneStar(pane);
+  updateNavButtons(pane);     // back/forward start disabled until there's history
   return pane;
 }
 
@@ -798,6 +802,7 @@ async function navigate(pane, raw) {
   await framingReady;
   pane.url = url;
   pane.urlInput.value = url;
+  recordNav(pane, url);                  // feed the pane's back/forward history
   renderPaneCarousel(pane);              // a loaded URL hides the shared carousel here
   pane.wrap.classList.remove('empty-state');
   pane.iframe.src = url;
@@ -814,9 +819,42 @@ function reload(pane) {
 // content script inside the frame does the actual history.go (see panewatch.js);
 // a cross-origin parent can't. postMessage to '*' is fine -- the payload carries
 // no secrets and the receiver checks the message came from its parent.
+// Per-pane back/forward, tracked in the parent. Reliable regardless of the page's
+// origin, whether a content script could inject, or click timing -- and it lets us
+// know when the ends are reached so the buttons can disable. recordNav() feeds the
+// stack from every navigation; paneNav() walks it.
+function recordNav(pane, url) {
+  const nv = pane.nav;
+  if (!nv || !url || url === 'about:blank') return;
+  // Compare on a normalized form: navigate() sees the URL as typed
+  // ("https://x.com") while the frame reports the canonical "https://x.com/", and a
+  // trailing-slash difference must NOT count as a new history entry.
+  const norm = (u) => u.replace(/\/+$/, '');
+  const cur = nv.stack[nv.pos];
+  if (cur !== undefined && norm(cur) === norm(url)) {
+    nv.stack[nv.pos] = url;                   // same page -- just canonicalize
+    return;
+  }
+  nv.stack = nv.stack.slice(0, nv.pos + 1);   // navigating forward from mid-history drops the rest
+  nv.stack.push(url);
+  nv.pos = nv.stack.length - 1;
+  updateNavButtons(pane);
+}
+
+function updateNavButtons(pane) {
+  const nv = pane.nav; if (!nv) return;
+  const b = pane.el.querySelector('.back'), f = pane.el.querySelector('.fwd');
+  if (b) b.disabled = nv.pos <= 0;
+  if (f) f.disabled = nv.pos >= nv.stack.length - 1;
+}
+
 function paneNav(pane, dir) {
-  if (!pane.iframe || !pane.iframe.contentWindow) return;
-  try { pane.iframe.contentWindow.postMessage({ __splitNav: dir }, '*'); } catch (_) { /* frame gone */ }
+  const nv = pane.nav; if (!nv) return;
+  const target = nv.pos + dir;
+  if (target < 0 || target >= nv.stack.length) return;
+  nv.pos = target;                       // set first so navigate()'s recordNav dedupes
+  navigate(pane, nv.stack[target]);
+  updateNavButtons(pane);
 }
 
 // ---- image carousel --------------------------------------------------------
@@ -1421,6 +1459,8 @@ window.addEventListener('message', (e) => {
   pane.url = href;
   // don't fight the user if they're mid-edit in that box
   if (document.activeElement !== pane.urlInput) pane.urlInput.value = href;
+  recordNav(pane, href);       // in-frame navigation feeds back/forward history
+  updatePaneStar(pane);        // and re-checks whether this page is bookmarked (★/☆)
   clearTimeout(urlSaveTimer);
   urlSaveTimer = setTimeout(() => save(), 500);   // persists state + bookmarkable link
 });
@@ -1500,6 +1540,13 @@ function flushState() {
   clearTimeout(urlSaveTimer);
   save();       // writes splitState immediately, stages the newest ?set=
   flushUrl();   // commit ?set= now instead of 1.5s later
+  // Record this grid's CURRENT layout for reopen-on-restart right now, bypassing
+  // notifyAlive's debounce -- so every open grid (including ones from ＋ New grid)
+  // comes back with what it actually holds, not a stale/blank snapshot.
+  clearTimeout(aliveTimer);
+  try {
+    chrome.runtime.sendMessage({ type: 'splitAlive', set: b64urlEncode(JSON.stringify(snapshot())) });
+  } catch (_) { /* ignore */ }
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushState(); });
 window.addEventListener('pagehide', flushState);
