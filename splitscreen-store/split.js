@@ -1295,6 +1295,19 @@ function save() {
   updateActiveChips();
 }
 
+// Persist everything RIGHT NOW, bypassing the debounces. Critical when the tab is
+// about to be backgrounded or discarded: the ?set= URL a reload restores from must
+// already reflect where each pane was navigated to, or the panes snap back to their
+// original URLs on return. Background tabs also throttle setTimeout, so we can't rely
+// on the debounced writes firing in time.
+function flushState() {
+  clearTimeout(urlSaveTimer);
+  save();       // writes splitState immediately, stages the newest ?set=
+  flushUrl();   // commit ?set= now instead of 1.5s later
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushState(); });
+window.addEventListener('pagehide', flushState);
+
 function b64urlEncode(str) {
   const bytes = new TextEncoder().encode(str);
   let bin = '';
