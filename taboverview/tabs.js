@@ -28,7 +28,7 @@ async function init() {
     try { chrome.tabs[ev].addListener(refresh); } catch (_) { /* ignore */ }
   }
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'session') return;
+    if (area !== 'local') return;
     for (const k in changes) {
       if (!k.startsWith('thumb_')) continue;
       if (changes[k].newValue) thumbs[k] = changes[k].newValue; else delete thumbs[k];
@@ -39,7 +39,11 @@ async function init() {
 
 async function reload() {
   try { allTabs = await chrome.tabs.query({}); } catch (_) { allTabs = []; }
-  try { thumbs = (await chrome.storage.session.get(null)) || {}; } catch (_) { thumbs = {}; }
+  try {
+    const all = (await chrome.storage.local.get(null)) || {};
+    thumbs = {};
+    for (const k in all) if (k.startsWith('thumb_')) thumbs[k] = all[k];
+  } catch (_) { thumbs = {}; }
   render();
 }
 
@@ -160,7 +164,7 @@ function card(t) {
   const thumb = document.createElement('div');
   thumb.className = 'thumb';
   const th = thumbs['thumb_' + t.id];
-  if (th && th.dataUrl) {
+  if (th && th.dataUrl && th.url === t.url) {   // url guard: don't show a reused id's stale shot
     const img = document.createElement('img');
     img.className = 'shot';
     img.alt = '';
@@ -240,6 +244,8 @@ function updateThumb(id) {
   if (!el) return;
   const th = thumbs['thumb_' + id];
   if (!th || !th.dataUrl) return;
+  const t = allTabs.find((x) => String(x.id) === String(id));
+  if (t && th.url !== t.url) return;            // stale shot for a since-navigated tab
   const thumbEl = el.querySelector('.thumb');
   let img = thumbEl.querySelector('img.shot');
   if (!img) {

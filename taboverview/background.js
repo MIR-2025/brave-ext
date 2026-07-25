@@ -1,8 +1,10 @@
 // Tab Overview -- service worker.
 // Real per-tab thumbnails aren't available on demand (captureVisibleTab only shoots
 // the *visible* tab), so we capture a tab whenever you settle on it, downscale it,
-// and cache it by tab id in session storage. The overview page shows the last-seen
-// thumbnail for each tab, and a favicon fallback for tabs never viewed / not capturable.
+// and cache it by tab id. Stored in storage.local so thumbnails SURVIVE a reload/
+// restart. Because tab ids get reused, each thumb carries the URL it was taken at,
+// and the overview only shows a thumb whose URL still matches the tab; dead tabs'
+// thumbs are pruned on load.
 
 const THUMB = 'thumb_';
 const MAX_W = 360;
@@ -32,7 +34,7 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.status === 'complete' && tab && tab.active) schedule(tab.windowId, tabId);
 });
 chrome.tabs.onRemoved.addListener(async (tabId) => {
-  chrome.storage.session.remove(THUMB + tabId).catch(() => {});
+  chrome.storage.local.remove(THUMB + tabId).catch(() => {});
   const ov = await getOverview();
   if (ov && ov.tabId === tabId) { ov.alive = false; ov.ts = Date.now(); await setOverview(ov); }
 });
@@ -68,8 +70,8 @@ async function reopenOverview() {
   try { await chrome.tabs.create({ url: OVERVIEW_URL, active: false }); } catch (_) { /* ignore */ }
 }
 
-chrome.runtime.onInstalled.addListener(reopenOverview);
-chrome.runtime.onStartup.addListener(reopenOverview);
+chrome.runtime.onInstalled.addListener(() => { reopenOverview(); pruneThumbs(); });
+chrome.runtime.onStartup.addListener(() => { reopenOverview(); pruneThumbs(); });
 
 function schedule(windowId, tabId) {
   clearTimeout(timer);
@@ -86,7 +88,19 @@ async function capture(windowId, tabId) {
 
   const shot = await chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 80 });
   const thumb = await downscale(shot);
-  await chrome.storage.session.set({ [THUMB + tabId]: { dataUrl: thumb, url, ts: Date.now() } });
+  await chrome.storage.local.set({ [THUMB + tabId]: { dataUrl: thumb, url, ts: Date.now() } });
+}
+
+// Drop thumbnails for tabs that no longer exist -- keeps storage bounded to roughly
+// the open-tab count and avoids a reused tab id inheriting a closed tab's thumbnail.
+async function pruneThumbs() {
+  try {
+    const all = await chrome.storage.local.get(null);
+    const open = new Set((await chrome.tabs.query({})).map((t) => t.id));
+    const dead = Object.keys(all)
+      .filter((k) => k.startsWith(THUMB) && !open.has(Number(k.slice(THUMB.length))));
+    if (dead.length) await chrome.storage.local.remove(dead);
+  } catch (_) { /* ignore */ }
 }
 
 async function downscale(dataUrl) {
