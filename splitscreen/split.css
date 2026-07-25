@@ -203,6 +203,31 @@ body { display: flex; flex-direction: column; }
 .icon:hover:not(:disabled) { background: #353b47; }
 .icon:disabled { opacity: .35; cursor: default; }
 .icon.close:hover:not(:disabled) { background: #5a2a2a; border-color: #7a3a3a; }
+.icon.star.on { color: var(--accent-hi); border-color: var(--accent-hi); }
+
+/* ---- per-workspace bookmarks (shown in a blank pane) ---- */
+.bm-section { width: 100%; margin-bottom: 12px; }
+.bmlist { display: flex; flex-direction: column; gap: 4px; max-height: 42vh; overflow: auto; }
+.bm-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px;
+  background: #0f1318; cursor: pointer;
+}
+.bm-link:hover { border-color: var(--accent); background: #141a22; }
+.bm-link img { width: 15px; height: 15px; border-radius: 3px; flex: 0 0 auto; }
+.bm-link-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.bm-link-x { flex: 0 0 auto; opacity: .4; padding: 0 3px; }
+.bm-link-x:hover { opacity: 1; color: #ff6b6b; }
+
+/* ---- toast ---- */
+.toast {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(8px);
+  background: var(--bar); color: var(--text); border: 1px solid var(--line);
+  padding: 8px 16px; border-radius: 20px; font-size: 12.5px; z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45); opacity: 0; pointer-events: none;
+  transition: opacity .18s, transform .18s;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ---- URL history autocomplete ----
    One shared dropdown, appended to <body> and fixed-positioned under the focused

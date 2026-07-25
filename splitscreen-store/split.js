@@ -65,7 +65,7 @@ addBtn.addEventListener('click', () => {
   p.urlInput.focus();
 });
 gridBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleGridPicker(); });
-nameInput.addEventListener('input', () => { setName = nameInput.value; save(); });
+nameInput.addEventListener('input', () => { setName = nameInput.value; save(); refreshAllBookmarks(); });
 iconInput.addEventListener('input', () => { setIcon = iconInput.value.trim(); save(); });
 copyBtn.addEventListener('click', onCopyLink);
 saveBtn.addEventListener('click', saveCurrentSet);
@@ -387,6 +387,7 @@ function createPaneObj() {
       '<button class="icon fwd" title="Forward">›</button>' +
       '<button class="icon reload" title="Reload">↻</button>' +
       '<input class="url" type="text" spellcheck="false" placeholder="Enter a URL or search, then press Enter">' +
+      '<button class="icon star" title="Bookmark this page in the current workspace">☆</button>' +
       '<button class="icon tabs" title="Choose an open tab">☰</button>' +
       '<button class="icon open" title="Open in a new tab">↗</button>' +
       '<button class="icon close" title="Remove pane">✕</button>' +
@@ -395,6 +396,8 @@ function createPaneObj() {
     '<div class="frame-wrap empty-state">' +
       '<iframe sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-pointer-lock allow-presentation allow-storage-access-by-user-activation" allow="fullscreen; autoplay; clipboard-read; clipboard-write" referrerpolicy="no-referrer-when-downgrade"></iframe>' +
       '<div class="empty"><div class="empty-inner">' +
+        '<div class="bm-section" hidden><p class="empty-hint">This workspace\'s bookmarks:</p>' +
+          '<div class="bmlist"></div></div>' +
         '<p class="empty-hint">Type a URL above, or pick an open tab:</p>' +
         '<div class="tablist"></div>' +
         '<div class="empty-or">or</div>' +
@@ -439,6 +442,7 @@ function createPaneObj() {
   el.querySelector('.open').addEventListener('click', () => { if (pane.url) window.open(pane.url, '_blank'); });
   el.querySelector('.close').addEventListener('click', () => removePane(pane));
   el.querySelector('.tabs').addEventListener('click', () => toggleMenu(pane));
+  el.querySelector('.star').addEventListener('click', () => toggleBookmark(pane));
 
   // Image carousel: the shared image set shown in every blank pane. Uploading or
   // clearing from ANY pane updates all of them; prev/next steps only this pane.
@@ -461,7 +465,102 @@ function createPaneObj() {
   panes.push(pane);
   renderTabList(pane.overlayList, pane);
   renderPaneCarousel(pane);   // a fresh blank pane shows the shared carousel if set
+  renderPaneBookmarks(pane);  // ...and the current workspace's bookmarks
+  updatePaneStar(pane);
   return pane;
+}
+
+// ---- per-workspace bookmarks ------------------------------------------------
+// Each saved workspace holds a list of links. They cost ~nothing until opened
+// (that's the memory win over keeping every page as a live tab): a blank pane
+// lists them, one click loads one, the star saves the current page into them.
+
+function activeWorkspace() {
+  return setName ? savedSets.find((s) => s.name === setName) : null;
+}
+
+function toggleBookmark(pane) {
+  const ws = activeWorkspace();
+  if (!ws) { toast('Save this as a workspace first (＋ Workspace)'); return; }
+  if (!pane.url) { toast('Load a page in this pane first'); return; }
+  ws.links = ws.links || [];
+  const at = ws.links.findIndex((l) => l.url === pane.url);
+  if (at >= 0) { ws.links.splice(at, 1); toast('Removed bookmark'); }
+  else { ws.links.push({ url: pane.url, title: domainOf(pane.url) || pane.url }); toast('Bookmarked'); }
+  persistSaved();
+  refreshAllBookmarks();
+}
+
+function removeBookmark(url) {
+  const ws = activeWorkspace();
+  if (!ws || !ws.links) return;
+  ws.links = ws.links.filter((l) => l.url !== url);
+  persistSaved();
+  refreshAllBookmarks();
+}
+
+// A filled star means the pane's page is in the workspace's bookmarks.
+function updatePaneStar(pane) {
+  const star = pane.el.querySelector('.star');
+  if (!star) return;
+  const ws = activeWorkspace();
+  const saved = !!(pane.url && ws && ws.links && ws.links.some((l) => l.url === pane.url));
+  star.textContent = saved ? '★' : '☆';
+  star.classList.toggle('on', saved);
+}
+
+function renderPaneBookmarks(pane) {
+  const section = pane.el.querySelector('.bm-section');
+  const list = pane.el.querySelector('.bmlist');
+  if (!section || !list) return;
+  const ws = activeWorkspace();
+  const links = (ws && ws.links) || [];
+  list.textContent = '';
+  section.hidden = links.length === 0;
+  for (const l of links) {
+    const chip = document.createElement('div');
+    chip.className = 'bm-link';
+    chip.title = l.url;
+
+    const fav = document.createElement('img');
+    fav.referrerPolicy = 'no-referrer';
+    fav.src = faviconHref(l.url);
+    fav.onerror = () => { fav.src = 'icons/icon32.png'; };
+
+    const nm = document.createElement('span');
+    nm.className = 'bm-link-name';
+    nm.textContent = l.title || l.url;
+
+    const x = document.createElement('span');
+    x.className = 'bm-link-x';
+    x.textContent = '✕';
+    x.title = 'Remove bookmark';
+    x.addEventListener('click', (e) => { e.stopPropagation(); removeBookmark(l.url); });
+
+    chip.append(fav, nm, x);
+    chip.addEventListener('click', () => navigate(pane, l.url));
+    list.appendChild(chip);
+  }
+}
+
+function refreshAllBookmarks() {
+  panes.forEach((p) => { renderPaneBookmarks(p); updatePaneStar(p); });
+}
+
+// ---- toast ------------------------------------------------------------------
+let toastTimer = null;
+function toast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
 }
 
 function removePane(pane) {
@@ -479,6 +578,8 @@ function clearPane(pane) {
   pane.urlInput.value = '';
   pane.iframe.src = 'about:blank';
   renderPaneCarousel(pane);   // show the shared carousel if any, else the empty prompt
+  renderPaneBookmarks(pane);  // a now-blank pane offers the workspace's bookmarks
+  updatePaneStar(pane);
   renderTabList(pane.overlayList, pane);
   save();
 }
@@ -492,6 +593,7 @@ async function navigate(pane, raw) {
   renderPaneCarousel(pane);              // a loaded URL hides the shared carousel here
   pane.wrap.classList.remove('empty-state');
   pane.iframe.src = url;
+  updatePaneStar(pane);                  // reflect whether this page is bookmarked
   closeMenus();
   save();
 }
@@ -1188,6 +1290,7 @@ async function restore() {
   // one by name. Otherwise the working theme (splitTheme, already applied) stands.
   const ws = setName ? savedSets.find((s) => s.name === setName) : null;
   if (ws) applyWorkspaceTheme(ws);
+  refreshAllBookmarks();           // a reopened workspace shows its bookmark library
   save();
 }
 
@@ -1206,11 +1309,33 @@ function persistSaved() {
 function saveCurrentSet() {
   const snap = snapshot();
   const firstDom = (() => { const p = panes.find((x) => x.url); return p ? domainOf(p.url) : ''; })();
-  const name = String(setName || firstDom || 'Set').trim().slice(0, 40) || 'Set';
-  // Capture the current look so this workspace reopens in its own theme.
-  savedSets.push({ id: 'set_' + Date.now(), name, snap, theme: { ...theme } });
+  const name = String(setName || firstDom).trim().slice(0, 40)
+    || 'Workspace ' + (savedSets.length + 1);
+  // If the user is clearly on an existing workspace by this name, update it in place
+  // (theme + seeded bookmarks) rather than pushing a duplicate.
+  const existing = savedSets.find((s) => s.name === name);
+  // Seed the workspace's bookmarks with the pages it currently holds, so it opens
+  // as a ready library rather than empty.
+  const seeded = [...new Set(panes.map((p) => p.url).filter(Boolean))]
+    .map((u) => ({ url: u, title: domainOf(u) || u }));
+  if (existing) {
+    existing.snap = snap;
+    existing.theme = { ...theme };
+    existing.links = mergeLinks(existing.links || [], seeded);
+  } else {
+    savedSets.push({ id: 'set_' + Date.now(), name, snap, theme: { ...theme }, links: seeded });
+  }
+  if (!setName) { setName = name; nameInput.value = name; }
   persistSaved();
   renderBookmarks();
+  refreshAllBookmarks();
+  toast('Workspace saved');
+}
+
+// Union two link lists by URL, keeping order (existing first, then new).
+function mergeLinks(a, b) {
+  const seen = new Set(a.map((l) => l.url));
+  return a.concat(b.filter((l) => !seen.has(l.url)));
 }
 
 function deleteSet(id) {
@@ -1227,13 +1352,13 @@ function renderBookmarks() {
   bookmarksEl.textContent = '';
   const label = document.createElement('span');
   label.className = 'bm-label';
-  label.textContent = 'Saved:';
+  label.textContent = 'Workspaces:';
   bookmarksEl.appendChild(label);
 
   if (!savedSets.length) {
     const e = document.createElement('span');
     e.className = 'bm-empty';
-    e.textContent = 'none yet -- build a layout and hit ★ Save';
+    e.textContent = 'none yet -- build a layout and hit ＋ Workspace';
     bookmarksEl.appendChild(e);
     return;
   }
@@ -1285,6 +1410,7 @@ function loadSet(set) {
   building = false;
   save();
   renderBookmarks();
+  refreshAllBookmarks();           // show this workspace's link library in blank panes
 }
 
 // ---- copy bookmarkable link ----
