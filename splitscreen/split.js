@@ -65,6 +65,12 @@ addBtn.addEventListener('click', () => {
   p.urlInput.focus();
 });
 gridBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleGridPicker(); });
+document.getElementById('newGrid').addEventListener('click', () => {
+  // A fresh grid in its own tab -- clean split.html, no ?set=, so it opens as a new
+  // 2-pane workspace without disturbing this one.
+  const url = chrome.runtime.getURL('split.html');
+  try { chrome.tabs.create({ url }); } catch (_) { window.open(url, '_blank'); }
+});
 nameInput.addEventListener('input', () => { setName = nameInput.value; save(); refreshAllBookmarks(); });
 iconInput.addEventListener('input', () => { setIcon = iconInput.value.trim(); save(); });
 copyBtn.addEventListener('click', onCopyLink);
@@ -1030,6 +1036,18 @@ function buildGutters() {
     g.style.gridColumn = '1 / -1';
     container.appendChild(g);
   }
+  // A draggable handle at every interior crossing -- resize row + column together.
+  for (let kc = 0; kc < cols - 1; kc++) {
+    for (let kr = 0; kr < rows - 1; kr++) {
+      const c = document.createElement('div');
+      c.className = 'gutter corner';
+      c.title = 'Drag to resize both directions';
+      c.style.gridColumn = String(2 * kc + 2);
+      c.style.gridRow = String(2 * kr + 2);
+      c.addEventListener('mousedown', (e) => onCornerDown(kc, kr, e));
+      container.appendChild(c);
+    }
+  }
 }
 
 function makeGutter(kind, index) {
@@ -1039,37 +1057,62 @@ function makeGutter(kind, index) {
   return g;
 }
 
+// Set up a resize of tracks k and k+1 along one axis. Returns a function that takes
+// a pixel delta and repartitions just those two tracks (respecting MIN_SIZE), or
+// null if k has no neighbour. Captures the starting geometry once, at grab time.
+function axisResizer(kind, k) {
+  const sizes = kind === 'col' ? colSizes : rowSizes;
+  if (k + 1 >= sizes.length) return null;
+  const containerPx = kind === 'col' ? container.clientWidth : container.clientHeight;
+  const avail = Math.max(1, containerPx - (sizes.length - 1) * 6);
+  const pxPerFr = avail / sizes.reduce((a, b) => a + b, 0);
+  const totalFr = sizes[k] + sizes[k + 1];
+  const combinedPx = totalFr * pxPerFr;
+  const startKpx = sizes[k] * pxPerFr;
+  return function (deltaPx) {
+    const newK = Math.max(MIN_SIZE, Math.min(combinedPx - MIN_SIZE, startKpx + deltaPx));
+    sizes[k] = totalFr * (newK / combinedPx);
+    sizes[k + 1] = totalFr - sizes[k];
+  };
+}
+
 function onGutterDown(kind, k, e) {
   e.preventDefault();
   const horizontal = kind === 'col';
-  const sizes = horizontal ? colSizes : rowSizes;
-  if (k + 1 >= sizes.length) return;
-
-  const containerPx = horizontal ? container.clientWidth : container.clientHeight;
-  const gutterPx = (sizes.length - 1) * 6;
-  const avail = Math.max(1, containerPx - gutterPx);
-  const sumFr = sizes.reduce((a, b) => a + b, 0);
-  const pxPerFr = avail / sumFr;
-
-  const totalFr = sizes[k] + sizes[k + 1];
-  const combinedPx = totalFr * pxPerFr;
+  const resize = axisResizer(kind, k);
+  if (!resize) return;
   const start = horizontal ? e.clientX : e.clientY;
-  const startKpx = sizes[k] * pxPerFr;
-
   document.body.classList.add('dragging', horizontal ? 'col-resize' : 'row-resize');
+  function move(ev) { resize((horizontal ? ev.clientX : ev.clientY) - start); applyTemplate(); }
+  function up() {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    document.body.classList.remove('dragging', 'col-resize', 'row-resize');
+    save();
+  }
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
 
+// Corner drag: resize the column pair AND the row pair that meet at this crossing,
+// reshaping all four surrounding panes at once. dx drives the columns, dy the rows.
+function onCornerDown(kc, kr, e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const rc = axisResizer('col', kc);
+  const rr = axisResizer('row', kr);
+  if (!rc && !rr) return;
+  const startX = e.clientX, startY = e.clientY;
+  document.body.classList.add('dragging', 'corner-resize');
   function move(ev) {
-    const pos = horizontal ? ev.clientX : ev.clientY;
-    let newK = startKpx + (pos - start);
-    newK = Math.max(MIN_SIZE, Math.min(combinedPx - MIN_SIZE, newK));
-    sizes[k] = totalFr * (newK / combinedPx);
-    sizes[k + 1] = totalFr - sizes[k];
+    if (rc) rc(ev.clientX - startX);
+    if (rr) rr(ev.clientY - startY);
     applyTemplate();
   }
   function up() {
     document.removeEventListener('mousemove', move);
     document.removeEventListener('mouseup', up);
-    document.body.classList.remove('dragging', 'col-resize', 'row-resize');
+    document.body.classList.remove('dragging', 'corner-resize');
     save();
   }
   document.addEventListener('mousemove', move);

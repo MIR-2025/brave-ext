@@ -371,10 +371,27 @@ body { display: flex; flex-direction: column; }
 .gutter.col { cursor: col-resize; }
 .gutter.row { cursor: row-resize; }
 
+/* Corner handle at each interior crossing: a small square centered on the 6px
+   intersection (it overflows a few px into the pane corners so it's grabbable),
+   sitting above the row/col gutters so it wins the grab there. */
+.gutter.corner {
+  z-index: 6;
+  width: 16px; height: 16px;
+  place-self: center;
+  border-radius: 5px;
+  background: var(--divider-hi);
+  border: 1px solid var(--bar);
+  cursor: nwse-resize;
+  opacity: .6;
+  transition: opacity .12s, background .12s;
+}
+.gutter.corner:hover { opacity: 1; background: var(--accent, #14b8a6); }
+
 body.dragging { user-select: none; }
 body.dragging iframe { pointer-events: none; }
 body.dragging.col-resize { cursor: col-resize; }
 body.dragging.row-resize { cursor: row-resize; }
+body.dragging.corner-resize { cursor: nwse-resize; }
 
 /* ---- drag a pane to reposition it ---- */
 .icon.grip { cursor: grab; letter-spacing: -1px; }
