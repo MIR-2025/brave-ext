@@ -389,7 +389,7 @@ function createPaneObj() {
       '<input class="url" type="text" spellcheck="false" placeholder="Enter a URL or search, then press Enter">' +
       '<button class="icon star" title="Bookmark this page in the current workspace">☆</button>' +
       '<button class="icon tabs" title="Choose an open tab">☰</button>' +
-      '<button class="icon open" title="Open in a new tab">↗</button>' +
+      '<button class="icon open" title="Open in a new window">↗</button>' +
       '<button class="icon close" title="Remove pane">✕</button>' +
       '<div class="tab-menu" hidden><div class="tablist"></div></div>' +
     '</div>' +
@@ -439,7 +439,13 @@ function createPaneObj() {
   el.querySelector('.back').addEventListener('click', () => paneNav(pane, -1));
   el.querySelector('.fwd').addEventListener('click', () => paneNav(pane, 1));
   el.querySelector('.reload').addEventListener('click', () => reload(pane));
-  el.querySelector('.open').addEventListener('click', () => { if (pane.url) window.open(pane.url, '_blank'); });
+  el.querySelector('.open').addEventListener('click', () => {
+    if (!pane.url) return;
+    // A real new browser window, not a tab. chrome.windows.create is available on
+    // our extension page; fall back to a popup window if it somehow isn't.
+    try { chrome.windows.create({ url: pane.url, focused: true }); }
+    catch (_) { window.open(pane.url, '_blank', 'noopener,width=1280,height=860'); }
+  });
   el.querySelector('.close').addEventListener('click', () => removePane(pane));
   el.querySelector('.tabs').addEventListener('click', () => toggleMenu(pane));
   el.querySelector('.star').addEventListener('click', () => toggleBookmark(pane));
@@ -1211,15 +1217,36 @@ function notifyAlive(enc) {
   }, 400);
 }
 
+// The layout is mirrored into the tab's ?set= URL so a set stays bookmarkable.
+// But writing it on EVERY change (each pane load, resize, in-frame navigation)
+// made Brave log a browser-history visit per distinct URL -- dozens per session.
+// So defer + dedupe the URL write: a burst of edits collapses to a single history
+// entry once things settle. State (storage) and reopen-recording still happen
+// immediately in save(); only the visible/bookmarkable URL is debounced.
+let urlTimer = null;
+let lastUrlEnc = null;
+let pendingUrlEnc = null;
+function flushUrl() {
+  clearTimeout(urlTimer); urlTimer = null;
+  if (pendingUrlEnc && pendingUrlEnc !== lastUrlEnc) {
+    try {
+      history.replaceState(null, '', location.pathname + '?set=' + pendingUrlEnc);
+      lastUrlEnc = pendingUrlEnc;
+    } catch (_) { /* ignore */ }
+  }
+}
+
 function save() {
   if (building) return;
   const snap = snapshot();
   try { chrome.storage.local.set({ splitState: snap }); } catch (_) { /* ignore */ }
   let enc = '';
-  try {
-    enc = b64urlEncode(JSON.stringify(snap));
-    history.replaceState(null, '', location.pathname + '?set=' + enc);
-  } catch (_) { /* ignore */ }
+  try { enc = b64urlEncode(JSON.stringify(snap)); } catch (_) { /* ignore */ }
+  if (enc && enc !== lastUrlEnc) {
+    pendingUrlEnc = enc;
+    clearTimeout(urlTimer);
+    urlTimer = setTimeout(flushUrl, 1500);   // one history entry per settled state
+  }
   if (enc) notifyAlive(enc);           // let the worker record this tab so a reload can reopen it
   updateIdentity();
   updateActiveChips();
@@ -1417,6 +1444,7 @@ function loadSet(set) {
 
 async function onCopyLink() {
   const original = copyBtn.textContent;
+  flushUrl();   // make sure the URL reflects the latest layout before copying it
   try {
     await navigator.clipboard.writeText(location.href);
     copyBtn.textContent = 'Copied ✓';
