@@ -231,7 +231,7 @@ async function initTheme() {
   Object.entries(THEME_PRESETS).forEach(([name, p]) => {
     const b = document.createElement('button');
     b.type = 'button'; b.title = name; b.style.background = p.bg;
-    b.addEventListener('click', () => { theme = { ...theme, ...p }; syncThemeInputs(); applyTheme(theme); saveTheme(); });
+    b.addEventListener('click', () => { theme = { ...theme, ...p }; syncThemeInputs(); commitTheme(); });
     presets.appendChild(b);
   });
 
@@ -247,7 +247,7 @@ async function initTheme() {
     b.style.color = L.text;
     b.addEventListener('click', () => {
       theme = { ...theme, bg: L.bg, bar: L.bar, accent: L.accent, text: L.text, img: lookBanner(L) };
-      syncThemeInputs(); applyTheme(theme); saveTheme();
+      syncThemeInputs(); commitTheme();
     });
     looks.appendChild(b);
   });
@@ -257,13 +257,13 @@ async function initTheme() {
   const none = document.createElement('button');
   none.type = 'button'; none.className = 'tp-banner none'; none.title = 'No banner';
   none.textContent = '∅';
-  none.addEventListener('click', () => { theme = { ...theme, img: '' }; applyTheme(theme); saveTheme(); });
+  none.addEventListener('click', () => { theme = { ...theme, img: '' }; commitTheme(); });
   banners.appendChild(none);
   Object.entries(BANNER_DEFS).forEach(([name, cols]) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'tp-banner'; b.title = name;
     b.style.background = bannerCss(cols);
-    b.addEventListener('click', () => { theme = { ...theme, img: svgGradient(cols) }; applyTheme(theme); saveTheme(); });
+    b.addEventListener('click', () => { theme = { ...theme, img: svgGradient(cols) }; commitTheme(); });
     banners.appendChild(b);
   });
   // Bundled image banners.
@@ -271,7 +271,7 @@ async function initTheme() {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'tp-banner img'; b.title = name;
     b.style.background = 'center/cover no-repeat url("' + path + '")';
-    b.addEventListener('click', () => { theme = { ...theme, img: path }; applyTheme(theme); saveTheme(); });
+    b.addEventListener('click', () => { theme = { ...theme, img: path }; commitTheme(); });
     banners.appendChild(b);
   });
 
@@ -282,30 +282,31 @@ async function initTheme() {
   });
   updateImgHint();
   const bind = (id, key) => document.getElementById(id).addEventListener('input', (e) => {
-    theme[key] = e.target.value; applyTheme(theme); saveTheme();
+    theme[key] = e.target.value; commitTheme();
   });
   bind('tpBg', 'bg'); bind('tpBar', 'bar'); bind('tpAccent', 'accent'); bind('tpText', 'text');
 
   document.getElementById('tpDim').addEventListener('input', (e) => {
     theme.dim = Number(e.target.value);
     document.getElementById('tpDimVal').textContent = theme.dim + '%';
-    applyTheme(theme); saveTheme();
+    commitTheme();
   });
   document.getElementById('tpImg').addEventListener('change', async (e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     try {
       theme.img = await shrinkImage(f, 2560, 1600);
-      applyTheme(theme); saveTheme();
+      commitTheme();
     } catch (_) { /* ignore */ }
     e.target.value = '';
   });
   document.getElementById('tpClearImg').addEventListener('click', () => {
-    theme.img = ''; applyTheme(theme); saveTheme();
+    theme.img = ''; commitTheme();
   });
   document.getElementById('tpReset').addEventListener('click', () => {
-    theme = { ...THEME_DEFAULT }; syncThemeInputs(); applyTheme(theme); saveTheme();
+    theme = { ...THEME_DEFAULT }; syncThemeInputs(); commitTheme();
   });
+
 }
 
 function syncThemeInputs() {
@@ -319,6 +320,36 @@ function syncThemeInputs() {
 
 function saveTheme() {
   try { chrome.storage.local.set({ splitTheme: theme }); } catch (_) { /* ignore */ }
+}
+
+// ---- per-workspace theming --------------------------------------------------
+// Each saved workspace carries its own look. The tab's live `theme` is the working
+// copy (persisted as splitTheme for reload continuity); when the current layout IS
+// a saved workspace, edits fold back into that workspace so switching to it later
+// restores the same room.
+
+function syncActiveSetTheme() {
+  if (!setName) return;
+  const s = savedSets.find((x) => x.name === setName);
+  if (s) { s.theme = { ...theme }; persistSaved(); }
+}
+
+// One call for every theme edit: repaint, persist the working theme, fold into the
+// active workspace.
+function commitTheme() {
+  applyTheme(theme);
+  saveTheme();
+  syncActiveSetTheme();
+}
+
+// Switching TO a workspace applies its saved theme (if it has one). This is a
+// switch, not an edit, so it does not write back.
+function applyWorkspaceTheme(set) {
+  if (!set || !set.theme) return;
+  theme = { ...THEME_DEFAULT, ...set.theme };
+  syncThemeInputs();
+  applyTheme(theme);
+  saveTheme();
 }
 
 // Re-encode to PNG at a sane size: a phone photo would otherwise sit in storage as a
@@ -1153,6 +1184,10 @@ async function restore() {
 
   building = false;
   if (add) fillFirstEmpty(add);
+  // A reopened tab wears its workspace's own theme, if the layout matches a saved
+  // one by name. Otherwise the working theme (splitTheme, already applied) stands.
+  const ws = setName ? savedSets.find((s) => s.name === setName) : null;
+  if (ws) applyWorkspaceTheme(ws);
   save();
 }
 
@@ -1172,7 +1207,8 @@ function saveCurrentSet() {
   const snap = snapshot();
   const firstDom = (() => { const p = panes.find((x) => x.url); return p ? domainOf(p.url) : ''; })();
   const name = String(setName || firstDom || 'Set').trim().slice(0, 40) || 'Set';
-  savedSets.push({ id: 'set_' + Date.now(), name, snap });
+  // Capture the current look so this workspace reopens in its own theme.
+  savedSets.push({ id: 'set_' + Date.now(), name, snap, theme: { ...theme } });
   persistSaved();
   renderBookmarks();
 }
@@ -1227,7 +1263,7 @@ function renderBookmarks() {
     chip.appendChild(fav);
     chip.appendChild(nm);
     chip.appendChild(x);
-    chip.addEventListener('click', () => loadSet(s.snap));
+    chip.addEventListener('click', () => loadSet(s));
     bookmarksEl.appendChild(chip);
   }
   updateBanner(); // the saved-sets row can wrap to a new height, changing the band
@@ -1239,12 +1275,13 @@ function updateActiveChips() {
   }
 }
 
-function loadSet(snap) {
+function loadSet(set) {
   building = true;
   for (const p of panes) p.el.remove();
   panes.length = 0;
   container.querySelectorAll('.gutter').forEach((g) => g.remove());
-  buildFromSnapshot(snap);
+  buildFromSnapshot(set.snap);
+  applyWorkspaceTheme(set);        // switch to this workspace's own look
   building = false;
   save();
   renderBookmarks();
@@ -1278,9 +1315,12 @@ async function onCopyLink() {
 //
 // Running init after every declaration in the file has been evaluated makes that
 // whole class of bug impossible rather than fixing it one variable at a time.
-function init() {
-  initBookmarks();
-  initTheme();
+async function init() {
+  // Await these: restore() matches the reopened layout against savedSets to apply
+  // that workspace's theme, so the saved sets (and the working theme) must be
+  // loaded first.
+  await initBookmarks();
+  await initTheme();
   buildGridPicker();
   // the banner strip height tracks the header + URL bar, which change on resize
   window.addEventListener('resize', () => { updateBanner(); updateImgHint(); });
@@ -1288,7 +1328,7 @@ function init() {
   // state and is the likeliest thing here to throw. Contained so that a bad
   // restore costs you the restore and nothing else.
   try {
-    restore();
+    await restore();
   } catch (e) {
     console.error('[Split Screen] restore failed; continuing with an empty layout', e);
   }
