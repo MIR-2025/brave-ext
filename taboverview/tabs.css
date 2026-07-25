@@ -83,8 +83,12 @@ html, body {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 14px;
+  /* Card width scales with the viewport instead of pinning at ~230px. On a small
+     screen the 260px floor keeps it dense; on a big 4K monitor 22vw lets the cards
+     grow (capped at 620px) so the thumbnails are actually legible -- roughly the
+     same column count at every size, bigger cards on bigger screens. */
+  grid-template-columns: repeat(auto-fill, minmax(clamp(260px, 22vw, 620px), 1fr));
+  gap: 16px;
 }
 
 .card {
@@ -110,6 +114,15 @@ html, body {
 .thumb img.shot { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
 .thumb .fallback { width: 40px; height: 40px; border-radius: 9px; opacity: .85; }
 .thumb .noshot { color: #3a424e; font-size: 11px; position: absolute; bottom: 6px; right: 8px; }
+
+/* Synthetic preview for a Split Screen tab (decoded from its ?set= URL). */
+.splitprev { position: absolute; inset: 0; display: grid; gap: 5px; padding: 7px; background: #0c0e11; }
+.sp-cell {
+  display: grid; place-items: center; text-align: center; padding: 4px 6px;
+  font-size: 12px; line-height: 1.2; color: #aeb6c2; background: #1a1f27;
+  border: 1px solid var(--line); border-radius: 6px; overflow: hidden; word-break: break-word;
+}
+.sp-cell.empty { background: #14181f; }
 
 .close {
   position: absolute;

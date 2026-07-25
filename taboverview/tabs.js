@@ -50,6 +50,40 @@ function debounce(fn, ms) {
 
 function hostOf(u) { try { return new URL(u).host || u; } catch (_) { return u || ''; } }
 
+// A Split Screen tab can't be screenshotted (it's another extension's page), but it
+// encodes its whole layout in the URL -- ?set=<b64url JSON {c:cols, n:name, u:[urls]}>.
+// Decode that and we can draw a synthetic preview of the workspace grid instead of a
+// blank favicon.
+function decodeSplitSet(url) {
+  if (!url || !/\/split\.html\?/i.test(url)) return null;
+  const m = /[?&]set=([^&]+)/.exec(url);
+  if (!m) return null;
+  try {
+    const b = m[1].replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (_) { return null; }
+}
+
+function splitPreview(t) {
+  const snap = decodeSplitSet(t.url);
+  if (!snap) return null;
+  const cols = Math.max(1, Math.min(6, snap.c || 2));
+  const urls = Array.isArray(snap.u) ? snap.u : [];
+  const wrap = document.createElement('div');
+  wrap.className = 'splitprev';
+  wrap.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+  for (let i = 0, n = Math.max(1, urls.length); i < n; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'sp-cell' + (urls[i] ? '' : ' empty');
+    cell.textContent = urls[i] ? hostOf(urls[i]) : '';
+    wrap.appendChild(cell);
+  }
+  return wrap;
+}
+
 function visibleTabs() {
   const q = searchEl.value.trim().toLowerCase();
   return allTabs
@@ -120,11 +154,17 @@ function card(t) {
     img.src = th.dataUrl;
     thumb.appendChild(img);
   } else {
-    thumb.appendChild(favImg('fallback', t));
-    const ns = document.createElement('span');
-    ns.className = 'noshot';
-    ns.textContent = 'no preview yet';
-    thumb.appendChild(ns);
+    const sp = splitPreview(t);
+    if (sp) {
+      thumb.classList.add('is-split');
+      thumb.appendChild(sp);
+    } else {
+      thumb.appendChild(favImg('fallback', t));
+      const ns = document.createElement('span');
+      ns.className = 'noshot';
+      ns.textContent = 'no preview yet';
+      thumb.appendChild(ns);
+    }
   }
   const close = document.createElement('button');
   close.className = 'close';
@@ -150,7 +190,13 @@ function card(t) {
   title.title = t.title || '';
   const host = document.createElement('div');
   host.className = 'host';
-  host.textContent = hostOf(t.url);
+  const sset = decodeSplitSet(t.url);
+  if (sset) {
+    const np = (sset.u || []).filter(Boolean).length;
+    host.textContent = 'Split Screen · ' + np + (np === 1 ? ' pane' : ' panes');
+  } else {
+    host.textContent = hostOf(t.url);
+  }
   text.appendChild(title);
   text.appendChild(host);
   meta.appendChild(text);
