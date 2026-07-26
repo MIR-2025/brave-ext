@@ -65,12 +65,32 @@ addBtn.addEventListener('click', () => {
   p.urlInput.focus();
 });
 gridBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleGridPicker(); });
-document.getElementById('newGrid').addEventListener('click', () => {
+document.getElementById('newGrid').addEventListener('click', async () => {
   // A fresh grid in its own tab. ?new=1 tells restore() to start with a blank 2x2
   // rather than reopening the last saved layout.
   const url = chrome.runtime.getURL('split.html?new=1');
-  try { chrome.tabs.create({ url }); } catch (_) { window.open(url, '_blank'); }
+  try {
+    const tab = await chrome.tabs.create({ url });
+    await groupGridTab(tab);   // give the new grid its own tab group
+  } catch (_) { window.open(url, '_blank'); }
 });
+
+// Each new grid gets its own collapsible tab group in the strip, so grids read as
+// distinct clusters. Colours rotate so adjacent grids look different. Best-effort:
+// if the tabGroups API/permission is missing the grid just opens ungrouped.
+const GROUP_COLORS = ['cyan', 'blue', 'purple', 'pink', 'green', 'orange', 'red', 'yellow'];
+async function groupGridTab(tab) {
+  if (!tab || !chrome.tabs || !chrome.tabs.group || !chrome.tabGroups) return;
+  try {
+    let color = 'cyan';
+    try {
+      const existing = await chrome.tabGroups.query({});
+      color = GROUP_COLORS[existing.length % GROUP_COLORS.length];
+    } catch (_) { /* query unavailable -> default colour */ }
+    const groupId = await chrome.tabs.group({ tabIds: [tab.id] });
+    await chrome.tabGroups.update(groupId, { title: 'Grid', color });
+  } catch (_) { /* no tabGroups permission -> ungrouped, still opens fine */ }
+}
 nameInput.addEventListener('input', () => { setName = nameInput.value; save(); refreshAllBookmarks(); });
 iconInput.addEventListener('input', () => { setIcon = iconInput.value.trim(); save(); });
 copyBtn.addEventListener('click', onCopyLink);
