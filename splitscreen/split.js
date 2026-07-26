@@ -65,33 +65,46 @@ addBtn.addEventListener('click', () => {
   p.urlInput.focus();
 });
 gridBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleGridPicker(); });
-document.getElementById('newGrid').addEventListener('click', async () => {
-  // A fresh grid in its own tab. ?new=1 tells restore() to start with a blank 2x2
-  // rather than reopening the last saved layout.
-  const url = chrome.runtime.getURL('split.html?new=1');
-  try {
-    const tab = await chrome.tabs.create({ url });
-    await groupGridTab(tab);   // give the new grid its own tab group
-  } catch (_) { window.open(url, '_blank'); }
-});
+// New grid = capture the currently loaded panes as a new grid pill (default name
+// "Grid", rename it anytime) right here in this tab -- grids are pills, not separate
+// browser tabs.
+document.getElementById('newGrid').addEventListener('click', newGridPill);
 
-// Each new grid gets its own collapsible tab group in the strip, so grids read as
-// distinct clusters. Colours rotate so adjacent grids look different. Best-effort:
-// if the tabGroups API/permission is missing the grid just opens ungrouped.
-const GROUP_COLORS = ['cyan', 'blue', 'purple', 'pink', 'green', 'orange', 'red', 'yellow'];
-async function groupGridTab(tab) {
-  if (!tab || !chrome.tabs || !chrome.tabs.group || !chrome.tabGroups) return;
-  try {
-    let color = 'cyan';
-    try {
-      const existing = await chrome.tabGroups.query({});
-      color = GROUP_COLORS[existing.length % GROUP_COLORS.length];
-    } catch (_) { /* query unavailable -> default colour */ }
-    const groupId = await chrome.tabs.group({ tabIds: [tab.id] });
-    await chrome.tabGroups.update(groupId, { title: 'Grid', color });
-  } catch (_) { /* no tabGroups permission -> ungrouped, still opens fine */ }
+function uniqueGridName() {
+  if (!savedSets.some((s) => s.name === 'Grid')) return 'Grid';
+  let i = 2;
+  while (savedSets.some((s) => s.name === 'Grid ' + i)) i++;
+  return 'Grid ' + i;
 }
-nameInput.addEventListener('input', () => { setName = nameInput.value; save(); refreshAllBookmarks(); });
+
+function newGridPill() {
+  const name = uniqueGridName();
+  const seeded = [...new Set(panes.map((p) => p.url).filter(Boolean))]
+    .map((u) => ({ url: u, title: domainOf(u) || u }));
+  savedSets.push({ id: 'set_' + Date.now(), name, snap: snapshot(), theme: { ...theme }, links: seeded });
+  setName = name;
+  nameInput.value = name;
+  persistSaved();
+  save();
+  renderBookmarks();
+  refreshAllBookmarks();
+  toast('Grid added -- rename it with the ✎ or the name field');
+}
+
+// Editing the name field renames the ACTIVE grid in place (rather than spinning up a
+// duplicate), keeping its pill in sync as you type.
+nameInput.addEventListener('input', () => {
+  const active = savedSets.find((s) => s.name === setName);
+  setName = nameInput.value;
+  if (active) {
+    active.name = nameInput.value.trim().slice(0, 40) || active.name;
+    persistSaved();
+    const chip = bookmarksEl.querySelector('.bm-chip.active');
+    if (chip) { chip.dataset.name = active.name; const nm = chip.querySelector('.bm-name'); if (nm) nm.textContent = active.name; }
+  }
+  save();
+  refreshAllBookmarks();
+});
 iconInput.addEventListener('input', () => { setIcon = iconInput.value.trim(); save(); });
 copyBtn.addEventListener('click', onCopyLink);
 saveBtn.addEventListener('click', saveCurrentSet);
@@ -1840,6 +1853,41 @@ function deleteSet(id) {
   renderBookmarks();
 }
 
+// Inline-rename a grid pill: swap its label for a text field; Enter or blur commits,
+// Escape cancels. If it's the active grid, keep setName + the name field in sync.
+function startRename(chip, s) {
+  const nm = chip.querySelector('.bm-name');
+  if (!nm) return;
+  const input = document.createElement('input');
+  input.className = 'bm-rename';
+  input.type = 'text';
+  input.maxLength = 40;
+  input.value = s.name;
+  nm.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const commit = () => {
+    if (done) return;
+    done = true;
+    const nv = input.value.trim().slice(0, 40);
+    if (nv && nv !== s.name) {
+      if (setName === s.name) { setName = nv; nameInput.value = nv; }
+      s.name = nv;
+      persistSaved();
+    }
+    renderBookmarks();
+    refreshAllBookmarks();
+  };
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    else if (e.key === 'Escape') { input.value = s.name; input.blur(); }
+  });
+  input.addEventListener('blur', commit);
+}
+
 function firstUrlOf(snap) {
   return (snap && Array.isArray(snap.u) ? snap.u.find(Boolean) : '') || '';
 }
@@ -1875,6 +1923,12 @@ function renderBookmarks() {
     nm.className = 'bm-name';
     nm.textContent = s.name;
 
+    const ed = document.createElement('span');
+    ed.className = 'bm-edit';
+    ed.textContent = '✎';
+    ed.title = 'Rename';
+    ed.addEventListener('click', (e) => { e.stopPropagation(); startRename(chip, s); });
+
     const x = document.createElement('span');
     x.className = 'x';
     x.textContent = '✕';
@@ -1883,6 +1937,7 @@ function renderBookmarks() {
 
     chip.appendChild(fav);
     chip.appendChild(nm);
+    chip.appendChild(ed);
     chip.appendChild(x);
     chip.addEventListener('click', () => loadSet(s));
     bookmarksEl.appendChild(chip);

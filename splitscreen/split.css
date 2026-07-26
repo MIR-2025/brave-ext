@@ -140,8 +140,14 @@ body { display: flex; flex-direction: column; }
 }
 .bm-chip img { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 auto; }
 .bm-chip .bm-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.bm-chip .bm-edit { flex: 0 0 auto; opacity: .45; font-size: 11px; padding: 0 1px; }
+.bm-chip .bm-edit:hover { opacity: 1; color: var(--accent-hi); }
 .bm-chip .x { flex: 0 0 auto; opacity: .45; font-size: 11px; padding: 0 2px; }
 .bm-chip .x:hover { opacity: 1; color: #ff6b6b; }
+.bm-chip .bm-rename {
+  width: 110px; font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--accent); border-radius: 6px; padding: 1px 5px; outline: none;
+}
 
 /* the grid of panes */
 .panes {
