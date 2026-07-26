@@ -447,6 +447,17 @@ body.dragging.corner-resize { cursor: nwse-resize; }
   cursor: pointer; font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,.5);
 }
 .tp-look:hover { filter: brightness(1.1); }
+/* saved themes reuse the look pill, plus an on-hover × to remove */
+.tp-look.custom { display: inline-flex; align-items: center; gap: 4px; }
+.tp-look.custom .del { display: none; font-weight: 700; opacity: .9; }
+.tp-look.custom:hover .del { display: inline; }
+/* text inputs inside the theme panel (name a theme / paste a code) */
+.tp-name-input {
+  flex: 1; min-width: 0; background: var(--panel2, #1a1d24); color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 12px;
+}
+.tp-name-input:focus { outline: none; border-color: var(--accent); }
+.tp-share-row, .tp-import-row { gap: 6px; }
 /* Banner: gradient chips + a "none" chip. */
 .tp-banners { display: flex; gap: 5px; flex-wrap: wrap; }
 .tp-banner {

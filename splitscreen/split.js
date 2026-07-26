@@ -192,6 +192,11 @@ function svgGradient(colors) {
 function bannerCss(colors) { return 'linear-gradient(90deg,' + colors.join(',') + ')'; }
 let theme = { ...THEME_DEFAULT };
 
+// User-built themes: {name,bg,bar,accent,text,img,dim}. Saved ones live in
+// storage.local and appear in the "My themes" row for one-click reuse across
+// workspaces; export/import move them between machines or people as a short code.
+let customThemes = [];
+
 function applyTheme(t) {
   const r = document.documentElement.style;
   r.setProperty('--bg', t.bg);
@@ -246,8 +251,9 @@ function updateImgHint() {
 
 async function initTheme() {
   try {
-    const saved = (await chrome.storage.local.get('splitTheme')).splitTheme;
-    if (saved) theme = { ...THEME_DEFAULT, ...saved };
+    const st = await chrome.storage.local.get(['splitTheme', 'customThemes']);
+    if (st.splitTheme) theme = { ...THEME_DEFAULT, ...st.splitTheme };
+    if (Array.isArray(st.customThemes)) customThemes = st.customThemes;
   } catch (_) { /* defaults */ }
   syncThemeInputs();
   applyTheme(theme);
@@ -299,6 +305,29 @@ async function initTheme() {
     b.style.background = 'center/cover no-repeat url("' + path + '")';
     b.addEventListener('click', () => { theme = { ...theme, img: path }; commitTheme(); });
     banners.appendChild(b);
+  });
+
+  // My themes + save / export / import.
+  renderCustomThemes();
+  document.getElementById('tpSaveTheme').addEventListener('click', saveCurrentTheme);
+  document.getElementById('tpExport').addEventListener('click', exportCurrentTheme);
+  const importRow = document.getElementById('tpImportRow');
+  document.getElementById('tpImport').addEventListener('click', () => {
+    importRow.hidden = !importRow.hidden;
+    if (!importRow.hidden) document.getElementById('tpImportText').focus();
+  });
+  document.getElementById('tpImportAdd').addEventListener('click', () => {
+    importThemeFromText(document.getElementById('tpImportText').value);
+    document.getElementById('tpImportText').value = '';
+    importRow.hidden = true;
+  });
+  document.getElementById('tpImportFileBtn').addEventListener('click',
+    () => document.getElementById('tpImportFile').click());
+  document.getElementById('tpImportFile').addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) { try { importThemeFromText(await f.text()); } catch (_) { toast('Could not read that file'); } }
+    e.target.value = '';
+    importRow.hidden = true;
   });
 
   themeBtn.addEventListener('click', (e) => {
@@ -385,6 +414,124 @@ function applyWorkspaceTheme(set) {
   syncThemeInputs();
   applyTheme(theme);
   saveTheme();
+}
+
+// ---- custom themes: build, save, export, import -----------------------------
+
+// Capture the live look (colours + banner + overlay) as a named, portable theme.
+function themeSnapshot(name) {
+  return {
+    name: (name || 'My theme').toString().slice(0, 40),
+    bg: theme.bg, bar: theme.bar, accent: theme.accent, text: theme.text,
+    img: theme.img || '', dim: (typeof theme.dim === 'number') ? theme.dim : 35
+  };
+}
+
+function persistCustomThemes() {
+  try { chrome.storage.local.set({ customThemes }); } catch (_) { /* ignore */ }
+}
+
+// Repaint the "My themes" row from the saved list; hide the row when empty.
+function renderCustomThemes() {
+  const mine = document.getElementById('tpMine');
+  const row = document.getElementById('tpMineRow');
+  if (!mine) return;
+  mine.textContent = '';
+  customThemes.forEach((t) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tp-look custom';
+    b.title = t.name + ' -- click to apply, × to remove';
+    b.style.background = t.img
+      ? 'center/cover no-repeat url("' + t.img + '")'
+      : bannerCss([t.bar, t.accent]);
+    b.style.color = t.text;
+    const label = document.createElement('span'); label.textContent = t.name;
+    const del = document.createElement('span'); del.className = 'del'; del.textContent = '×';
+    del.title = 'Remove this theme';
+    del.addEventListener('click', (e) => { e.stopPropagation(); deleteCustomTheme(t.name); });
+    b.appendChild(label); b.appendChild(del);
+    b.addEventListener('click', () => applyCustomTheme(t));
+    mine.appendChild(b);
+  });
+  if (row) row.hidden = customThemes.length === 0;
+}
+
+function applyCustomTheme(t) {
+  theme = {
+    ...theme,
+    bg: t.bg, bar: t.bar, accent: t.accent, text: t.text,
+    img: t.img || '', dim: (typeof t.dim === 'number') ? t.dim : theme.dim
+  };
+  syncThemeInputs();
+  commitTheme();
+}
+
+function saveCurrentTheme() {
+  const input = document.getElementById('tpThemeName');
+  const name = (input && input.value.trim()) || ('My theme ' + (customThemes.length + 1));
+  const snap = themeSnapshot(name);
+  const i = customThemes.findIndex((t) => t.name.toLowerCase() === name.toLowerCase());
+  if (i >= 0) customThemes[i] = snap; else customThemes.push(snap);   // same name overwrites
+  persistCustomThemes();
+  renderCustomThemes();
+  if (input) input.value = '';
+  toast('Saved theme "' + name + '"');
+}
+
+function deleteCustomTheme(name) {
+  customThemes = customThemes.filter((t) => t.name !== name);
+  persistCustomThemes();
+  renderCustomThemes();
+  toast('Removed "' + name + '"');
+}
+
+// An imported image may only be a bundled banner or an inline data URL -- never a
+// remote URL, so a shared theme can't quietly phone home when it paints.
+function sanitizeThemeImg(img) {
+  if (typeof img !== 'string' || !img) return '';
+  if (img.startsWith('data:image/')) return img;
+  if (/^banners\/[\w.-]+\.(png|jpe?g|webp|svg)$/i.test(img)) return img;
+  return '';
+}
+
+function encodeTheme(t) { return 'SST1.' + b64urlEncode(JSON.stringify(t)); }
+
+function decodeTheme(code) {
+  let s = (code || '').trim();
+  const at = s.indexOf('SST1.');
+  if (at !== -1) s = s.slice(at + 5);
+  const t = JSON.parse(b64urlDecode(s));
+  const hex = (c) => typeof c === 'string' && /^#?[0-9a-fA-F]{3,8}$/.test(c.trim());
+  if (!t || !hex(t.bg) || !hex(t.bar) || !hex(t.accent) || !hex(t.text)) throw new Error('not a theme');
+  return {
+    name: (t.name || 'Imported').toString().slice(0, 40),
+    bg: t.bg, bar: t.bar, accent: t.accent, text: t.text,
+    img: sanitizeThemeImg(t.img), dim: (typeof t.dim === 'number') ? t.dim : 35
+  };
+}
+
+function exportCurrentTheme() {
+  const input = document.getElementById('tpThemeName');
+  const name = (input && input.value.trim()) || 'My theme';
+  const code = encodeTheme(themeSnapshot(name));
+  navigator.clipboard.writeText(code).then(
+    () => toast(code.length > 500
+      ? 'Theme code copied (large -- it bundles an image)'
+      : 'Theme code copied -- paste it to share or import'),
+    () => toast('Could not copy the code')
+  );
+}
+
+function importThemeFromText(text) {
+  let t;
+  try { t = decodeTheme(text); }
+  catch (_) { toast('That is not a valid theme code'); return; }
+  if (customThemes.some((x) => x.name.toLowerCase() === t.name.toLowerCase())) t.name += ' (imported)';
+  customThemes.push(t);
+  persistCustomThemes();
+  renderCustomThemes();
+  applyCustomTheme(t);
+  toast('Imported "' + t.name + '"');
 }
 
 // Re-encode to PNG at a sane size: a phone photo would otherwise sit in storage as a

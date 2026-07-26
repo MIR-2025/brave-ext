@@ -34,6 +34,7 @@
     <button id="themeBtn" class="tbtn" title="Settings -- colours and background">⚙</button>
     <div id="themePanel" class="theme-panel" hidden>
       <div class="tp-row tp-looks-row"><span>Themes</span><span id="tpLooks" class="tp-looks"></span></div>
+      <div class="tp-row tp-looks-row tp-mine-row" id="tpMineRow" hidden><span>My themes</span><span id="tpMine" class="tp-looks"></span></div>
       <div class="tp-row"><span>Colors</span><span id="tpPresets" class="tp-presets"></span></div>
       <div class="tp-row tp-banner-row"><span>Header</span><span id="tpBanners" class="tp-banners"></span></div>
       <div class="tp-row"><label for="tpBg">Background</label><input id="tpBg" type="color" value="#1b1e24"></div>
@@ -47,6 +48,22 @@
       <div class="tp-row"><label for="tpSuggest">Suggestions</label>
         <input id="tpSuggest" type="checkbox" checked>
         <span class="tp-note">search hints as you type (sends keystrokes to DuckDuckGo)</span></div>
+      <div class="tp-row tp-savetheme-row">
+        <span>Save</span>
+        <input id="tpThemeName" class="tp-name-input" type="text" spellcheck="false" placeholder="Name this theme">
+        <button id="tpSaveTheme" class="tbtn" type="button" title="Save the current colours + banner as a reusable theme">＋ Save theme</button>
+      </div>
+      <div class="tp-row tp-share-row">
+        <span>Share</span>
+        <button id="tpExport" class="tbtn" type="button" title="Copy this theme as a shareable code">⬆ Export</button>
+        <button id="tpImport" class="tbtn" type="button" title="Add a theme from a code or file">⬇ Import</button>
+      </div>
+      <div class="tp-row tp-import-row" id="tpImportRow" hidden>
+        <input id="tpImportText" class="tp-name-input" type="text" spellcheck="false" placeholder="Paste a theme code">
+        <button id="tpImportAdd" class="tbtn" type="button">Add</button>
+        <button id="tpImportFileBtn" class="tbtn" type="button" title="Import from a .json file">File…</button>
+        <input id="tpImportFile" type="file" accept="application/json,.json,.txt" hidden>
+      </div>
       <div class="tp-row tp-actions">
         <button id="tpClearImg" class="tbtn" type="button" hidden>Remove image</button>
         <button id="tpReset" class="tbtn" type="button">Reset</button>
