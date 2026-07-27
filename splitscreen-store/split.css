@@ -162,12 +162,23 @@ body { display: flex; flex-direction: column; }
 }
 
 /* the grid of panes */
+/* #panes is now a wrapper that stacks grid layers; the CSS grid lives on each
+   layer. Only the active layer is shown -- a hidden layer keeps its panes (and
+   their live iframe state) in the DOM so switching back doesn't reload them. */
 .panes {
   flex: 1;
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+}
+.grid-layer {
+  position: absolute;
+  inset: 0;
   display: grid;
   min-height: 0;
   min-width: 0;
 }
+.grid-layer[hidden] { display: none; }
 
 .pane {
   position: relative;
@@ -396,7 +407,7 @@ body.dragging.corner-resize { cursor: nwse-resize; }
 
 /* While a pane is being dragged, stop the iframes from eating dragover/drop --
    otherwise a pane with a page loaded can never be used as a drop target. */
-.panes.reordering iframe { pointer-events: none; }
+.grid-layer.reordering iframe { pointer-events: none; }
 
 .pane.drag-source { opacity: .5; }
 .pane.drop-target { outline: 2px solid var(--accent, #4c8bf5); outline-offset: -2px; }

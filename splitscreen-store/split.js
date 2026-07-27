@@ -4,7 +4,8 @@
 // URL so you can bookmark a set with Ctrl+D; the tab wears the first pane's favicon.
 // Header stripping (so sites load in a frame) is done by the service worker.
 
-const container = document.getElementById('panes');
+const panesWrap = document.getElementById('panes');   // wrapper that stacks grid layers
+let container = null;   // the ACTIVE grid layer (a .grid-layer div); set at init
 const addBtn = document.getElementById('addPane');
 const gridBtn = document.getElementById('gridBtn');
 const gridLabel = document.getElementById('gridLabel');
@@ -27,7 +28,7 @@ let carouselImgs = [];
 const MAX_TRACKS = 6;
 const MIN_SIZE = 80;
 
-const panes = [];        // arbitrary length, row-major
+let panes = [];          // arbitrary length, row-major (the ACTIVE layer's panes)
 let paneSeq = 0;         // names each pane's iframe so it can report its URL back
 let cols = 2;            // number of columns; rows derive from panes.length
 let layout = 'grid';     // 'grid' = uniform cols×rows; 'split-2-1' = left column of
@@ -87,7 +88,9 @@ function newGridPill() {
   const name = uniqueGridName();
   const seeded = [...new Set(panes.map((p) => p.url).filter(Boolean))]
     .map((u) => ({ url: u, title: domainOf(u) || u }));
-  savedSets.push({ id: 'set_' + Date.now(), name, snap: snapshot(), theme: { ...theme }, links: seeded });
+  const id = 'set_' + Date.now();
+  savedSets.push({ id, name, snap: snapshot(), theme: { ...theme }, links: seeded });
+  activeKey = id;                 // the current layer now IS this pill
   setName = name;
   nameInput.value = name;
   persistSaved();
@@ -1663,6 +1666,7 @@ async function restore() {
   // one by name. Otherwise the working theme (splitTheme, already applied) stands.
   const ws = setName ? savedSets.find((s) => s.name === setName) : null;
   if (ws) applyWorkspaceTheme(ws);
+  activeKey = ws ? ws.id : '__working__';   // key the initial grid for the layer cache
   refreshAllBookmarks();           // a reopened workspace shows its bookmark library
   save();
 }
@@ -1695,8 +1699,11 @@ function saveCurrentSet() {
     existing.snap = snap;
     existing.theme = { ...theme };
     existing.links = mergeLinks(existing.links || [], seeded);
+    activeKey = existing.id;   // the active layer now represents this saved grid
   } else {
-    savedSets.push({ id: 'set_' + Date.now(), name, snap, theme: { ...theme }, links: seeded });
+    const id = 'set_' + Date.now();
+    savedSets.push({ id, name, snap, theme: { ...theme }, links: seeded });
+    activeKey = id;
   }
   if (!setName) { setName = name; nameInput.value = name; }
   persistSaved();
@@ -1815,17 +1822,87 @@ function updateActiveChips() {
   }
 }
 
+// ---- grid layer cache -------------------------------------------------------
+// Switching grids used to destroy the current panes and rebuild the target from
+// its saved URLs -- which reloads every iframe and wipes anything you'd typed. So
+// keep the grid you're LEAVING live but hidden for a few minutes: switching back
+// restores the real, still-filled panes. Only the single previous grid is kept;
+// after the timeout it goes dormant (its layer is removed and its memory freed).
+// (You can't stash a live iframe by moving it -- that reloads it -- so a cached
+// grid stays exactly where it was built, just display:none.)
+const PREV_TTL_MS = 3 * 60 * 1000;   // "a few minutes"
+let activeKey = '__working__';       // key of the grid currently shown
+let cachedPrev = null;               // { key, el, panes, cols, layout, colSizes, rowSizes, name, icon, timer }
+
+function makeLayer() {
+  const el = document.createElement('div');
+  el.className = 'grid-layer';
+  panesWrap.appendChild(el);
+  return el;
+}
+function stashActive() {
+  container.hidden = true;   // keep it in the DOM (live iframes), just hidden
+  return {
+    key: activeKey, el: container, panes,
+    cols, layout, colSizes: colSizes.slice(), rowSizes: rowSizes.slice(),
+    name: setName, icon: setIcon
+  };
+}
+function activateStash(st) {
+  container = st.el; panes = st.panes;
+  cols = st.cols; layout = st.layout;
+  colSizes = st.colSizes.slice(); rowSizes = st.rowSizes.slice();
+  activeKey = st.key;
+  setName = st.name; nameInput.value = setName;
+  setIcon = st.icon; iconInput.value = setIcon;
+  container.hidden = false;
+}
+function evictStash(st) {
+  if (!st) return;
+  clearTimeout(st.timer);
+  st.el.remove();   // drop the layer + its iframes -> memory freed (dormant)
+}
+function setCachedPrev(st) {
+  cachedPrev = st;
+  st.timer = setTimeout(() => {
+    if (cachedPrev === st) { evictStash(st); cachedPrev = null; }
+  }, PREV_TTL_MS);
+}
+// Cache the grid we're leaving as the (single) previous one -- unless it's the
+// unsaved working grid, which has no pill to return to, so just drop it.
+function retire(leaving) {
+  if (cachedPrev) evictStash(cachedPrev);
+  cachedPrev = null;
+  if (leaving.key !== '__working__') setCachedPrev(leaving); else evictStash(leaving);
+}
+
 function loadSet(set) {
+  if (set.id === activeKey) return;   // clicking the active grid is a no-op
   building = true;
-  for (const p of panes) p.el.remove();
-  panes.length = 0;
-  container.querySelectorAll('.gutter').forEach((g) => g.remove());
-  buildFromSnapshot(set.snap);
-  applyWorkspaceTheme(set);        // switch to this workspace's own look
+
+  if (cachedPrev && cachedPrev.key === set.id) {
+    // Switching back to the still-live previous grid: restore it intact.
+    clearTimeout(cachedPrev.timer);
+    const restored = cachedPrev;
+    cachedPrev = null;
+    const leaving = stashActive();
+    activateStash(restored);
+    retire(leaving);
+    relayout();                      // re-assert tracks + gutters on the shown layer
+  } else {
+    // Build the target fresh in a new layer; retire the grid we're leaving.
+    const leaving = stashActive();
+    retire(leaving);
+    container = makeLayer();
+    panes = [];
+    activeKey = set.id;
+    buildFromSnapshot(set.snap);
+  }
+  applyWorkspaceTheme(set);          // switch to this grid's own look (theme is global)
   building = false;
   save();
   renderBookmarks();
-  refreshAllBookmarks();           // show this workspace's link library in blank panes
+  refreshAllBookmarks();
 }
 
 // ---- copy bookmarkable link ----
@@ -1869,6 +1946,7 @@ async function init() {
   // restore() rebuilds the entire layout from storage, so it touches the most
   // state and is the likeliest thing here to throw. Contained so that a bad
   // restore costs you the restore and nothing else.
+  container = makeLayer();   // the first active grid layer (restore() builds into it)
   try {
     await restore();
   } catch (e) {
