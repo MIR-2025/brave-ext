@@ -30,6 +30,8 @@ const MIN_SIZE = 80;
 const panes = [];        // arbitrary length, row-major
 let paneSeq = 0;         // names each pane's iframe so it can report its URL back
 let cols = 2;            // number of columns; rows derive from panes.length
+let layout = 'grid';     // 'grid' = uniform cols×rows; 'split-2-1' = left column of
+                         // two stacked panes + a right column of one full-height pane
 let colSizes = [1, 1];   // fr weight per column
 let rowSizes = [1];      // fr weight per row
 let setName = '';
@@ -45,7 +47,10 @@ let setIcon = '';   // optional per-set tab icon (emoji)
 let aliveTimer = null;
 let building = false;    // suppress persistence while bulk-building
 
-function rowCount() { return Math.max(1, Math.ceil(panes.length / cols)); }
+function rowCount() {
+  if (layout === 'split-2-1') return 2;   // the left column always has two rows
+  return Math.max(1, Math.ceil(panes.length / cols));
+}
 
 // Enable framing for this tab before loading any URL.
 const framingReady = (async () => {
@@ -59,6 +64,7 @@ const framingReady = (async () => {
 })();
 
 addBtn.addEventListener('click', () => {
+  layout = 'grid';   // adding a pane leaves any template layout
   const p = createPaneObj();
   relayout();
   save();
@@ -961,6 +967,7 @@ function removePane(pane) {
   if (idx === -1) return;
   panes.splice(idx, 1);
   pane.el.remove();
+  if (layout === 'split-2-1' && panes.length !== 3) layout = 'grid'; // template needs exactly 3
   relayout();
   save();
 }
@@ -1185,6 +1192,7 @@ function swapPanes(a, b) {
 }
 
 function applyGrid(newCols, targetPanes) {
+  layout = 'grid';   // a uniform grid replaces any template layout
   cols = Math.max(1, Math.min(MAX_TRACKS, newCols));
   if (targetPanes) {
     while (panes.length < targetPanes) createPaneObj();
@@ -1198,12 +1206,28 @@ function applyGrid(newCols, targetPanes) {
   save();
 }
 
+// Switch to a named template layout (non-uniform). Currently just 'split-2-1':
+// a left column of two stacked panes + a right column with one full-height pane.
+function applyLayout(name) {
+  layout = name;
+  if (name === 'split-2-1') {
+    cols = 2;
+    while (panes.length < 3) createPaneObj();
+    // keep exactly three; only trim trailing EMPTY panes (never drop a loaded page)
+    while (panes.length > 3 && !panes[panes.length - 1].url) { panes.pop().el.remove(); }
+    colSizes = fitSizes(colSizes, 2);
+    rowSizes = fitSizes(rowSizes, 2);
+  }
+  relayout();
+  save();
+}
+
 function relayout() {
   ensureSizes();
   applyTemplate();
   placePanes();
   buildGutters();
-  gridLabel.textContent = cols + ' × ' + rowCount();
+  gridLabel.textContent = layout === 'split-2-1' ? '2 | 1' : (cols + ' × ' + rowCount());
   updateBanner(); // grid/pane changes can alter the pane-bar row height
 }
 
@@ -1231,6 +1255,16 @@ function applyTemplate() {
 }
 
 function placePanes() {
+  if (layout === 'split-2-1' && panes.length >= 3) {
+    // left column: pane 0 top, pane 1 bottom; right column: pane 2 spans both rows
+    panes[0].el.style.gridColumn = '1'; panes[0].el.style.gridRow = '1';
+    panes[1].el.style.gridColumn = '1'; panes[1].el.style.gridRow = '3';
+    panes[2].el.style.gridColumn = '3'; panes[2].el.style.gridRow = '1 / -1';
+    for (let i = 3; i < panes.length; i++) {   // stray extras (rare) sit top-left
+      panes[i].el.style.gridColumn = '1'; panes[i].el.style.gridRow = '1';
+    }
+    return;
+  }
   for (let i = 0; i < panes.length; i++) {
     const c = i % cols;
     const r = Math.floor(i / cols);
@@ -1241,6 +1275,17 @@ function placePanes() {
 
 function buildGutters() {
   container.querySelectorAll('.gutter').forEach((g) => g.remove());
+  if (layout === 'split-2-1') {
+    // full-height vertical gutter between the two columns -> resize left vs right
+    const v = makeGutter('col', 0);
+    v.style.gridColumn = '2'; v.style.gridRow = '1 / -1';
+    container.appendChild(v);
+    // horizontal gutter INSIDE the left column only -> resize the two stacked panes
+    const h = makeGutter('row', 0);
+    h.style.gridRow = '2'; h.style.gridColumn = '1 / 2';
+    container.appendChild(h);
+    return;
+  }
   const rows = rowCount();
   for (let k = 0; k < cols - 1; k++) {
     const g = makeGutter('col', k);
@@ -1369,6 +1414,19 @@ function buildGridPicker() {
   }
   gridPicker.appendChild(grid);
   gridPicker.appendChild(label);
+
+  // Non-uniform templates that the hover-grid can't express.
+  const tpl = document.createElement('div');
+  tpl.className = 'gp-templates';
+  const t21 = document.createElement('button');
+  t21.type = 'button';
+  t21.className = 'gp-template';
+  t21.title = 'Left column split in two, right column full height';
+  // a tiny visual: two stacked boxes on the left, one tall box on the right
+  t21.innerHTML = '<span class="gp-tpl-ico"><span class="l"><i></i><i></i></span><span class="r"></span></span>2 | 1';
+  t21.addEventListener('click', () => { applyLayout('split-2-1'); gridPicker.hidden = true; });
+  tpl.appendChild(t21);
+  gridPicker.appendChild(tpl);
 }
 
 function toggleGridPicker() {
@@ -1660,6 +1718,7 @@ function updateIdentity() {
 function snapshot() {
   return {
     c: cols,
+    l: layout,
     cs: colSizes.map((x) => Math.round(x * 1000) / 1000),
     rs: rowSizes.map((x) => Math.round(x * 1000) / 1000),
     n: setName,
@@ -1746,6 +1805,7 @@ function b64urlDecode(b) {
 }
 
 function buildFromSnapshot(snap, firstOverride) {
+  layout = snap.l === 'split-2-1' ? 'split-2-1' : 'grid';   // set before rowCount() is used
   cols = Math.max(1, Math.min(MAX_TRACKS, snap.c || 2));
   setName = snap.n || '';
   nameInput.value = setName;
