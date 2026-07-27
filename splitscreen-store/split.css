@@ -119,16 +119,13 @@ body { display: flex; flex-direction: column; }
 .bookmarks {
   flex: 0 0 auto;
   display: flex;
+  flex-wrap: wrap;          /* pills wrap onto new rows instead of scrolling */
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
   background: #1f232b;
   border-bottom: 1px solid var(--line);
-  overflow-x: auto;
-  white-space: nowrap;
 }
-.bookmarks::-webkit-scrollbar { height: 6px; }
-.bookmarks::-webkit-scrollbar-thumb { background: #3a414d; border-radius: 3px; }
 .bm-label { flex: 0 0 auto; color: var(--muted); font-size: 11px; margin-right: 2px; }
 .bm-empty { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
 .bm-chip {
