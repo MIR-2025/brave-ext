@@ -72,9 +72,11 @@ addBtn.addEventListener('click', () => {
   p.urlInput.focus();
 });
 gridBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleGridPicker(); });
-// New grid = capture the currently loaded panes as a new grid pill (default name
-// "Grid", rename it anytime) right here in this tab -- grids are pills, not separate
-// browser tabs.
+// New grid = open a brand-new, blank two-pane grid right here in this tab (a fresh
+// pill) and switch to it immediately -- grids are pills, not separate browser tabs.
+// The grid you were on is never lost: a saved grid keeps its pill; an unsaved
+// working grid is captured as a pill first so its pages survive, and either way it
+// stays live for a few minutes so flipping back is instant.
 document.getElementById('newGrid').addEventListener('click', newGridPill);
 
 function uniqueGridName() {
@@ -85,19 +87,47 @@ function uniqueGridName() {
 }
 
 function newGridPill() {
+  building = true;                  // suppress persistence until the new grid is built
+  const t = Date.now();
+
+  // Don't drop the grid you're leaving. A saved grid already has a pill; an unsaved
+  // working grid would vanish when we stash+retire it, so snapshot its current pages
+  // into a pill first (seeding that pill's bookmarks with whatever is open).
+  if (activeKey === '__working__') {
+    const prevName = uniqueGridName();
+    const seeded = [...new Set(panes.map((p) => p.url).filter(Boolean))]
+      .map((u) => ({ url: u, title: domainOf(u) || u }));
+    const prevId = 'set_' + t;
+    savedSets.push({ id: prevId, name: prevName, snap: snapshot(), theme: { ...theme }, links: seeded });
+    activeKey = prevId; setName = prevName; nameInput.value = prevName;
+  }
+
+  // Stash the current grid (kept live + cached, so its pill flips back instantly)
+  // and stand up a fresh, blank two-pane grid in its own layer.
+  const leaving = stashActive();
+  retire(leaving);
+  container = makeLayer();
+  panes = [];
+  cols = 2; layout = 'grid';
+  colSizes = [1, 1]; rowSizes = [1];
+  createPaneObj();
+  createPaneObj();
+
   const name = uniqueGridName();
-  const seeded = [...new Set(panes.map((p) => p.url).filter(Boolean))]
-    .map((u) => ({ url: u, title: domainOf(u) || u }));
-  const id = 'set_' + Date.now();
-  savedSets.push({ id, name, snap: snapshot(), theme: { ...theme }, links: seeded });
-  activeKey = id;                 // the current layer now IS this pill
-  setName = name;
-  nameInput.value = name;
+  const id = 'set_' + (t + 1);      // +1 so it never collides with prevId above
+  activeKey = id;
+  setName = name; nameInput.value = name;
+  setIcon = ''; iconInput.value = '';
+  relayout();
+  savedSets.push({ id, name, snap: snapshot(), theme: { ...theme }, links: [] });
+
+  building = false;
   persistSaved();
   save();
   renderBookmarks();
   refreshAllBookmarks();
-  toast('Grid added -- rename it with the ✎ or the name field');
+  toast('New grid -- two blank panes. Rename it with the ✎ or the name field.');
+  if (panes[0] && panes[0].urlInput) panes[0].urlInput.focus();
 }
 
 // Editing the name field renames the ACTIVE grid in place (rather than spinning up a
