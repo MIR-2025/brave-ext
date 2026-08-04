@@ -612,6 +612,12 @@ function createPaneObj() {
       '<button class="icon fwd" title="Forward">›</button>' +
       '<button class="icon reload" title="Reload">↻</button>' +
       '<input class="url" type="text" spellcheck="false" placeholder="Enter a URL or search, then press Enter">' +
+      '<div class="find-wrap" title="Find in this pane (Ctrl+F)">' +
+        '<input class="find" type="text" spellcheck="false" placeholder="Find">' +
+        '<span class="find-count"></span>' +
+        '<button class="icon find-prev" title="Previous match (Shift+Enter)" tabindex="-1">‹</button>' +
+        '<button class="icon find-next" title="Next match (Enter)" tabindex="-1">›</button>' +
+      '</div>' +
       '<button class="icon star" title="Bookmark this page in the current workspace">☆</button>' +
       '<button class="icon tabs" title="Choose an open tab">☰</button>' +
       '<button class="icon open" title="Open in a new window">↗</button>' +
@@ -694,6 +700,22 @@ function createPaneObj() {
     if (e.key === 'Enter') navigate(pane, pane.urlInput.value);
   });
   wireReorder(pane, el);
+
+  // ---- find in page (this pane) ----
+  pane.findInput = el.querySelector('.find');
+  pane.findCount = el.querySelector('.find-count');
+  el.addEventListener('mouseenter', () => { lastFindPane = pane; });
+  let findTimer = null;
+  pane.findInput.addEventListener('input', () => {
+    clearTimeout(findTimer);
+    findTimer = setTimeout(() => sendFind(pane, 'find', pane.findInput.value), 150);
+  });
+  pane.findInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); sendFind(pane, e.shiftKey ? 'prev' : 'next', pane.findInput.value); }
+    else if (e.key === 'Escape') { e.preventDefault(); pane.findInput.value = ''; setFindCount(pane, null); sendFind(pane, 'clear'); }
+  });
+  el.querySelector('.find-prev').addEventListener('click', () => { sendFind(pane, 'prev', pane.findInput.value); pane.findInput.focus(); });
+  el.querySelector('.find-next').addEventListener('click', () => { sendFind(pane, 'next', pane.findInput.value); pane.findInput.focus(); });
 
   container.appendChild(el);
   panes.push(pane);
@@ -1536,9 +1558,53 @@ window.addEventListener('message', (e) => {
   if (document.activeElement !== pane.urlInput) pane.urlInput.value = href;
   recordNav(pane, href);       // in-frame navigation feeds back/forward history
   updatePaneStar(pane);        // and re-checks whether this page is bookmarked (★/☆)
+  // a live find follows you to the new page (the frame's matches reset on load)
+  if (pane.findInput && pane.findInput.value) setTimeout(() => sendFind(pane, 'find', pane.findInput.value), 400);
   clearTimeout(urlSaveTimer);
   urlSaveTimer = setTimeout(() => save(), 500);   // persists state + bookmarkable link
 });
+
+// ---- per-pane find in page -----------------------------------------------
+// Native Ctrl+F can't see into a cross-origin frame, so each pane bar drives a find
+// INSIDE its own frame (panewatch.js) over postMessage, and shows the match count
+// back here. sendFind is used by createPaneObj's wiring above.
+let lastFindPane = null;
+function sendFind(pane, action, query) {
+  try { pane.iframe.contentWindow.postMessage({ __splitFind: { action, query } }, '*'); } catch (_) { /* frame gone */ }
+}
+function setFindCount(pane, res) {
+  if (!pane.findCount) return;
+  const has = !!(pane.findInput && pane.findInput.value);
+  const unsupported = !!(res && res.ok === false);
+  if (!res || !res.count) {
+    pane.findCount.textContent = has ? (unsupported ? 'n/a' : '0') : '';
+    if (pane.findInput) pane.findInput.classList.toggle('no-match', has && !unsupported);
+  } else {
+    pane.findCount.textContent = res.index + '/' + res.count;
+    if (pane.findInput) pane.findInput.classList.remove('no-match');
+  }
+}
+window.addEventListener('message', (e) => {
+  const d = e.data;
+  if (!d) return;
+  if (d.__splitFindResult) {
+    const pane = panes.find((p) => p.iframe && p.iframe.contentWindow === e.source);
+    if (pane) setFindCount(pane, d.__splitFindResult);
+  } else if (d.__splitFindFocus) {
+    const pane = panes.find((p) => p.iframe && p.iframe.contentWindow === e.source);
+    if (pane && pane.findInput) { lastFindPane = pane; pane.findInput.focus(); pane.findInput.select(); }
+  }
+});
+// Ctrl/Cmd+F while focus is in the split page (not inside a pane) -> the Find box of
+// the pane you were last over. (Focus inside a pane is handled by panewatch.js.)
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'f' || e.key === 'F')) {
+    const active = document.activeElement;
+    if (active && active.classList && active.classList.contains('find')) return;   // already there
+    const pane = lastFindPane || panes[0];
+    if (pane && pane.findInput) { e.preventDefault(); pane.findInput.focus(); pane.findInput.select(); }
+  }
+}, true);
 
 function updateIdentity() {
   const first = panes.find((p) => p.url);

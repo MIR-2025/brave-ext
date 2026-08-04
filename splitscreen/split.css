@@ -231,6 +231,40 @@ body { display: flex; flex-direction: column; }
 .icon.close:hover:not(:disabled) { background: #5a2a2a; border-color: #7a3a3a; }
 .icon.star.on { color: var(--accent-hi); border-color: var(--accent-hi); }
 
+/* ---- per-pane find box (next to the address) ---- */
+.pane-bar .find-wrap {
+  flex: 0 1 150px;
+  min-width: 82px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.pane-bar .find {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #171b21;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+.pane-bar .find:focus { border-color: var(--accent); }
+.pane-bar .find.no-match { border-color: #c0504d; color: #f0a9a6; }
+.pane-bar .find-count {
+  flex: 0 0 auto;
+  min-width: 24px;
+  text-align: center;
+  font-size: 10px;
+  color: #8892a0;
+  white-space: nowrap;
+}
+.pane-bar .find-prev, .pane-bar .find-next { width: 22px; height: 28px; font-size: 13px; }
+body.has-bgimg .pane-bar .find { background: rgba(15, 18, 24, .42); }
+body.has-bgimg .pane-bar .find:focus { background: rgba(15, 18, 24, .72); }
+
 /* ---- per-workspace bookmarks (shown in a blank pane) ---- */
 .bm-section { width: 100%; margin-bottom: 12px; }
 .bmlist { display: flex; flex-direction: column; gap: 4px; max-height: 42vh; overflow: auto; }

@@ -77,4 +77,119 @@
   // Clear when the pointer leaves the pane entirely.
   document.addEventListener('mouseout', function (e) { if (!e.relatedTarget) hideLink(); }, true);
   window.addEventListener('blur', hideLink);
+
+  // ---- find in page ---------------------------------------------------------
+  // Native Ctrl+F can't reach into a cross-origin frame, so the pane bar drives a
+  // find from in here. Matches are painted with the CSS Custom Highlight API -- no
+  // DOM mutation -- and the ::highlight styles go in via a constructed stylesheet,
+  // which page CSP does not restrict. Degrades to nothing if the API is missing.
+  const HL_OK = !!(window.CSS && CSS.highlights && typeof Highlight !== 'undefined' &&
+                   document.createTreeWalker);
+  let fRanges = [], fIdx = -1, fQuery = '', fStyled = false;
+
+  function styleOnce() {
+    if (fStyled || !HL_OK) return;
+    fStyled = true;
+    const css = '::highlight(splitfind){background:#ffe066;color:#111}' +
+                '::highlight(splitfind-current){background:#ff8f1f;color:#111}';
+    try {
+      const s = new CSSStyleSheet();
+      s.replaceSync(css);
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, s];
+    } catch (_) {
+      try {
+        const el = document.createElement('style');
+        el.textContent = css;
+        (document.head || document.documentElement).appendChild(el);
+      } catch (__) { /* ignore */ }
+    }
+  }
+
+  function clearFind() {
+    fRanges = []; fIdx = -1;
+    try { CSS.highlights.delete('splitfind'); CSS.highlights.delete('splitfind-current'); } catch (_) {}
+  }
+
+  function paintCurrent(scroll) {
+    if (fIdx < 0 || fIdx >= fRanges.length) return;
+    try { CSS.highlights.set('splitfind-current', new Highlight(fRanges[fIdx])); } catch (_) {}
+    if (scroll) {
+      try {
+        const el = fRanges[fIdx].startContainer.parentElement;
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'nearest' });
+      } catch (_) {}
+    }
+  }
+
+  function runFind(q) {
+    clearFind();
+    fQuery = q || '';
+    const needle = fQuery.toLowerCase();
+    if (!needle || !HL_OK) return { count: 0, index: 0, ok: HL_OK };
+    styleOnce();
+    const root = document.body || document.documentElement;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(n) {
+        const v = n.nodeValue;
+        if (!v || v.toLowerCase().indexOf(needle) === -1) return NodeFilter.FILTER_REJECT;
+        const p = n.parentElement;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        const tag = p.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') return NodeFilter.FILTER_REJECT;
+        if (p.offsetParent === null && p.offsetWidth === 0 && p.offsetHeight === 0) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    let node;
+    while ((node = walker.nextNode())) {
+      const lower = node.nodeValue.toLowerCase();
+      let from = 0, i;
+      while ((i = lower.indexOf(needle, from)) !== -1) {
+        try {
+          const r = document.createRange();
+          r.setStart(node, i); r.setEnd(node, i + needle.length);
+          fRanges.push(r);
+        } catch (_) {}
+        from = i + needle.length;
+        if (fRanges.length >= 2000) break;
+      }
+      if (fRanges.length >= 2000) break;
+    }
+    if (!fRanges.length) return { count: 0, index: 0, ok: true };
+    try { CSS.highlights.set('splitfind', new Highlight(...fRanges)); } catch (_) {}
+    fIdx = 0; paintCurrent(true);
+    return { count: fRanges.length, index: 1, ok: true };
+  }
+
+  function stepFind(delta) {
+    if (!fRanges.length) return { count: 0, index: 0, ok: HL_OK };
+    fIdx = (fIdx + delta + fRanges.length) % fRanges.length;
+    paintCurrent(true);
+    return { count: fRanges.length, index: fIdx + 1, ok: true };
+  }
+
+  function reply(res) {
+    try { window.parent.postMessage({ __splitFindResult: res, pane: name }, '*'); } catch (_) {}
+  }
+
+  window.addEventListener('message', function (e) {
+    const d = e.data;
+    if (!d || !d.__splitFind || e.source !== window.parent) return;
+    const c = d.__splitFind, action = c.action;
+    if (action === 'clear') { clearFind(); fQuery = ''; return; }
+    if (action === 'find') { reply(runFind(c.query)); return; }
+    if (action === 'next' || action === 'prev') {
+      if (c.query != null && c.query !== fQuery) { reply(runFind(c.query)); return; }
+      reply(stepFind(action === 'next' ? 1 : -1));
+    }
+  });
+
+  // Ctrl/Cmd+F while focus is inside this frame -> hand it to the pane bar's Find
+  // box (the browser's own find can't see into this cross-origin frame anyway).
+  window.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'f' || e.key === 'F')) {
+      e.preventDefault();
+      try { window.parent.postMessage({ __splitFindFocus: true, pane: name }, '*'); } catch (_) {}
+    }
+  }, true);
 })();
