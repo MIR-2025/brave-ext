@@ -878,6 +878,7 @@ function createPaneObj() {
   // Image carousel: the shared image set shown in every blank pane. Uploading or
   // clearing from ANY pane updates all of them; prev/next steps only this pane.
   pane.carIdx = 0;
+  pane.carPicked = false;   // has this blank pane been given its random image yet?
   const cfile = el.querySelector('.carousel-file');
   el.querySelector('.carousel-add').addEventListener('click', () => cfile.click());
   el.querySelector('.carousel .add-more').addEventListener('click', () => cfile.click());
@@ -1134,10 +1135,13 @@ function clearCarousel() {
 }
 
 // Re-render the carousel in every pane. `reset` staggers each pane's start index
-// so a grid of blank panes shows a spread of the images rather than all the same.
+// so a grid of blank panes shows a random spread of the images rather than all the same.
+function randCarIdx() {
+  return carouselImgs.length ? Math.floor(Math.random() * carouselImgs.length) : 0;
+}
 function refreshAllCarousels(reset) {
-  panes.forEach((p, i) => {
-    if (reset) p.carIdx = carouselImgs.length ? i % carouselImgs.length : 0;
+  panes.forEach((p) => {
+    if (reset) p.carPicked = false;   // re-pick a fresh random image on the next render
     renderPaneCarousel(p);
   });
 }
@@ -1150,9 +1154,12 @@ function renderPaneCarousel(pane) {
     pane.el.querySelector('.carousel-img').removeAttribute('src');
     pane.wrap.classList.remove('carousel-state');
     if (!pane.url) pane.wrap.classList.add('empty-state');
+    pane.carPicked = false;                     // blank again later -> a new random image
     return;
   }
   const n = carouselImgs.length;
+  // a blank pane shows a RANDOM image, held until the pane changes or the user steps it
+  if (!pane.carPicked) { pane.carIdx = randCarIdx(); pane.carPicked = true; }
   const idx = (((pane.carIdx || 0) % n) + n) % n;
   pane.carIdx = idx;
   pane.wrap.classList.remove('empty-state');
@@ -1168,6 +1175,7 @@ function renderPaneCarousel(pane) {
 function stepCarousel(pane, d) {
   const n = carouselImgs.length;
   if (n < 2) return;
+  pane.carPicked = true;   // respect the user's manual choice (don't re-randomize)
   pane.carIdx = (((pane.carIdx + d) % n) + n) % n;
   renderPaneCarousel(pane);
 }
@@ -2011,9 +2019,50 @@ function mergeLinks(a, b) {
 }
 
 function deleteSet(id) {
+  const wasActive = (id === activeKey);
   savedSets = savedSets.filter((s) => s.id !== id);
+  if (wasActive) switchAfterDelete();   // don't leave the deleted grid's panes on screen
   persistSaved();
   renderBookmarks();
+  refreshAllBookmarks();
+}
+
+// The active grid was just deleted: drop its now-orphaned layer and show the
+// last-known grid instead -- the still-live previous grid if we have it, else the
+// most recent remaining pill, else a fresh blank grid.
+function switchAfterDelete() {
+  building = true;
+  const dead = container;   // the deleted grid's layer, still on screen
+  if (cachedPrev) {
+    const restored = cachedPrev;
+    cachedPrev = null;
+    clearTimeout(restored.timer);
+    activateStash(restored);            // container/panes/name/... become the previous grid
+    relayout();
+    const set = savedSets.find((s) => s.id === restored.key);
+    if (set) applyWorkspaceTheme(set);
+  } else {
+    const target = savedSets[savedSets.length - 1];   // most recent remaining pill
+    container = makeLayer();
+    panes = [];
+    if (target) {
+      activeKey = target.id;
+      buildFromSnapshot(target.snap);
+      applyWorkspaceTheme(target);
+    } else {
+      activeKey = '__working__';
+      setName = ''; nameInput.value = '';
+      setIcon = ''; iconInput.value = '';
+      cols = 2; layout = 'grid';
+      colSizes = [1, 1]; rowSizes = [1];
+      createPaneObj();
+      createPaneObj();
+      relayout();
+    }
+  }
+  if (dead) dead.remove();              // free the deleted grid's iframes now
+  building = false;
+  save();
 }
 
 // Inline-rename a grid pill: swap its label for a text field; Enter or blur commits,
